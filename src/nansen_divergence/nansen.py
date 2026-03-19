@@ -1,10 +1,54 @@
-"""Wrapper around the Nansen CLI binary. Each function maps to one CLI command."""
+"""Wrapper around the Nansen CLI binary (or REST API). Each function maps to one CLI command / API endpoint."""
 
 import json
 import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
+
+# ---------------------------------------------------------------------------
+# REST API helpers
+# ---------------------------------------------------------------------------
+
+_API_BASE = "https://api.nansen.ai/api/v1"
+
+
+def _get_api_key() -> str | None:
+    """Return the Nansen REST API key from env, or None."""
+    return os.environ.get("NANSEN_API_KEY", "").strip() or None
+
+
+def _api_post(endpoint: str, payload: dict) -> dict:
+    """POST to the Nansen REST API and return parsed JSON."""
+    key = _get_api_key()
+    if not key:
+        raise RuntimeError("NANSEN_API_KEY not set")
+
+    url = f"{_API_BASE}{endpoint}"
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"apikey": key, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace") if exc.fp else ""
+        print(f"Nansen API error {exc.code} on {endpoint}: {body}", file=sys.stderr)
+        return {}
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        print(f"Nansen API request failed for {endpoint}: {exc}", file=sys.stderr)
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# CLI helpers
+# ---------------------------------------------------------------------------
 
 
 def _find_nansen() -> str:
@@ -54,6 +98,22 @@ def _run(args: list[str]) -> dict:
 
 def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[dict]:
     """Fetch top tokens from the screener. Returns list of token dicts."""
+    if _get_api_key():
+        all_tokens = []
+        for page in range(1, pages + 1):
+            resp = _api_post("/token-screener", {"chain": chain, "timeframe": timeframe, "page": page})
+            data = resp.get("data", resp)
+            if isinstance(data, dict):
+                all_tokens.extend(data.get("data", []))
+                if data.get("pagination", {}).get("is_last_page", True):
+                    break
+            elif isinstance(data, list):
+                all_tokens.extend(data)
+                break
+            else:
+                break
+        return all_tokens
+
     all_tokens = []
     for page in range(1, pages + 1):
         resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
@@ -68,6 +128,22 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
 
 def smart_money_netflow(chain: str) -> list[dict]:
     """Fetch smart money net flows per token."""
+    if _get_api_key():
+        all_flows = []
+        for page in range(1, 3):
+            resp = _api_post("/smart-money/netflow", {"chain": chain, "page": page})
+            data = resp.get("data", resp)
+            if isinstance(data, dict):
+                all_flows.extend(data.get("data", []))
+                if data.get("pagination", {}).get("is_last_page", True):
+                    break
+            elif isinstance(data, list):
+                all_flows.extend(data)
+                break
+            else:
+                break
+        return all_flows
+
     all_flows = []
     for page in range(1, 3):
         resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
@@ -82,6 +158,10 @@ def smart_money_netflow(chain: str) -> list[dict]:
 
 def flow_intelligence(chain: str, token: str, days: int = 30) -> dict:
     """Get flow intelligence breakdown by label for a token."""
+    if _get_api_key():
+        resp = _api_post("/tgm/flow-intelligence", {"chain": chain, "token": token, "days": days})
+        return resp.get("data", resp) if resp else {}
+
     resp = _run(["research", "token", "flow-intelligence", "--chain", chain, "--token", token, "--days", str(days)])
     if resp.get("success"):
         return resp["data"]
@@ -90,6 +170,10 @@ def flow_intelligence(chain: str, token: str, days: int = 30) -> dict:
 
 def who_bought_sold(chain: str, token: str, days: int = 30) -> dict:
     """Get recent buyers and sellers for a token."""
+    if _get_api_key():
+        resp = _api_post("/tgm/who-bought-sold", {"chain": chain, "token": token, "days": days})
+        return resp.get("data", resp) if resp else {}
+
     resp = _run(["research", "token", "who-bought-sold", "--chain", chain, "--token", token, "--days", str(days)])
     if resp.get("success"):
         return resp["data"]
@@ -98,6 +182,10 @@ def who_bought_sold(chain: str, token: str, days: int = 30) -> dict:
 
 def profiler_labels(address: str, chain: str = "ethereum") -> dict:
     """Get behavioral and entity labels for a wallet."""
+    if _get_api_key():
+        resp = _api_post("/profiler/address/labels", {"address": address, "chain": chain})
+        return resp.get("data", resp) if resp else {}
+
     resp = _run(["research", "profiler", "labels", "--address", address, "--chain", chain])
     if resp.get("success"):
         return resp["data"]
@@ -106,6 +194,10 @@ def profiler_labels(address: str, chain: str = "ethereum") -> dict:
 
 def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) -> dict:
     """Get PnL summary for a wallet."""
+    if _get_api_key():
+        resp = _api_post("/profiler/address/pnl-summary", {"address": address, "chain": chain, "days": days})
+        return resp.get("data", resp) if resp else {}
+
     resp = _run(["research", "profiler", "pnl-summary", "--address", address, "--chain", chain, "--days", str(days)])
     if resp.get("success"):
         return resp["data"]
@@ -114,6 +206,22 @@ def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) 
 
 def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
     """Fetch individual smart money DEX trades with wallet labels."""
+    if _get_api_key():
+        all_trades = []
+        for page in range(1, pages + 1):
+            resp = _api_post("/smart-money/dex-trades", {"chain": chain, "page": page})
+            data = resp.get("data", resp)
+            if isinstance(data, dict):
+                all_trades.extend(data.get("data", []))
+                if data.get("pagination", {}).get("is_last_page", True):
+                    break
+            elif isinstance(data, list):
+                all_trades.extend(data)
+                break
+            else:
+                break
+        return all_trades
+
     all_trades = []
     for page in range(1, pages + 1):
         resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
@@ -128,6 +236,15 @@ def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
 
 def smart_money_holdings(chain: str) -> list[dict]:
     """Fetch smart money holdings with 24h balance changes."""
+    if _get_api_key():
+        resp = _api_post("/smart-money/holdings", {"chain": chain})
+        data = resp.get("data", resp)
+        if isinstance(data, dict):
+            return data.get("data", [])
+        if isinstance(data, list):
+            return data
+        return []
+
     resp = _run(["research", "smart-money", "holdings", "--chain", chain])
     if resp.get("success"):
         return resp["data"].get("data", [])
@@ -136,6 +253,10 @@ def smart_money_holdings(chain: str) -> list[dict]:
 
 def token_indicators(chain: str, token: str) -> dict:
     """Fetch Nansen Score (risk/reward indicators) for a token."""
+    if _get_api_key():
+        resp = _api_post("/tgm/indicators", {"chain": chain, "token": token})
+        return resp.get("data", resp) if resp else {}
+
     resp = _run(["research", "token", "indicators", "--chain", chain, "--token", token])
     if resp.get("success"):
         return resp["data"]

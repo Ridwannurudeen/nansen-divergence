@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from . import __version__
 from .divergence import PHASES, is_divergent
 
 # Force UTF-8 output on Windows to avoid cp1252 encoding errors
@@ -80,7 +81,7 @@ def print_header(chains: list[str], timeframe: str, api_calls: int = 0):
     console.print()
     console.print(
         Panel(
-            f"[bold white]NANSEN DIVERGENCE SCANNER v2.0[/bold white]\n"
+            f"[bold white]NANSEN DIVERGENCE SCANNER v{__version__}[/bold white]\n"
             f"[dim]Multi-Chain SM Divergence Detection + Wyckoff Phases[/dim]\n\n"
             f"[dim]Chains:[/dim] {chain_str}  [dim]|  Timeframe:[/dim] {timeframe}"
             f"  [dim]|  CLI commands:[/dim] 9{api_str}",
@@ -147,9 +148,11 @@ def print_phase_section(phase: str, tokens: list[dict]):
 
         bar = _strength_bar(t["divergence_strength"])
 
+        new_tag = " [bold red]\\[NEW][/bold red]" if t.get("is_new") else ""
+
         table.add_row(
             t["chain"],
-            f"[bold]{t['token_symbol']}[/bold]",
+            f"[bold]{t['token_symbol']}[/bold]{new_tag}",
             f"[{price_color}]{_fmt_pct(price_chg)}{price_arrow}[/{price_color}]",
             _fmt_usd(t["market_cap"]),
             flow_str,
@@ -296,7 +299,7 @@ def print_scan_results(
 def print_json_output(results: list[dict], radar: list[dict], summary: dict):
     """Print structured JSON output for --json flag."""
     output = {
-        "version": "2.0.0",
+        "version": __version__,
         "summary": summary,
         "tokens": results,
         "sm_radar": radar,
@@ -573,3 +576,90 @@ def _print_wallet_profile(wallet: dict):
                 )
             if trades:
                 console.print(f"    [dim]Trades:[/dim] {trades}")
+
+
+def print_validation_section(validations: list[dict]):
+    """Print signal validation: past signals vs current prices."""
+    if not validations:
+        return
+
+    console.print("\n[bold bright_blue]SIGNAL VALIDATION[/bold bright_blue] -- Past signals vs current prices")
+    console.print(f"[bright_blue]{'=' * 100}[/bright_blue]")
+
+    for v in validations:
+        phase = v.get("phase", "")
+        symbol = v.get("token_symbol", "???")
+        chain = v.get("chain", "")
+        signal_price = v.get("signal_price", 0)
+        current_price = v.get("current_price", 0)
+        pct = v.get("price_change_pct", 0)
+        days_ago = v.get("days_ago", 0)
+
+        phase_color = PHASE_COLORS.get(phase, "dim")
+        pct_color = "green" if pct > 0 else "red"
+        sign = "+" if pct > 0 else ""
+
+        console.print(
+            f"  [{phase_color}]{phase}[/{phase_color}] on [bold]{symbol}[/bold] ({chain}) "
+            f"{days_ago}d ago at ${signal_price:.2f} -> now ${current_price:.2f} "
+            f"[{pct_color}]({sign}{pct:.1f}%)[/{pct_color}]"
+        )
+
+    console.print()
+
+
+def print_history(signals: list[dict], scans: list[dict]):
+    """Print signal history and past scans."""
+    if scans:
+        console.print("\n[bold]Recent Scans[/bold]")
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+        table.add_column("ID", width=4)
+        table.add_column("Timestamp", width=22)
+        table.add_column("Chains", width=30)
+        table.add_column("Tokens", justify="right", width=7)
+        table.add_column("Divergent", justify="right", width=9)
+
+        for s in scans:
+            table.add_row(
+                str(s.get("id", "")),
+                str(s.get("timestamp", ""))[:19],
+                str(s.get("chains", "")),
+                str(s.get("token_count", 0)),
+                str(s.get("divergence_count", 0)),
+            )
+
+        console.print(table)
+
+    if signals:
+        console.print("\n[bold]Recent Signals[/bold]")
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+        table.add_column("Time", width=19)
+        table.add_column("Chain", style="dim", width=9)
+        table.add_column("Token", width=10)
+        table.add_column("Phase", width=14)
+        table.add_column("Conf", width=6)
+        table.add_column("Strength", justify="right", width=8)
+        table.add_column("Price", justify="right", width=10)
+
+        for s in signals[:30]:
+            phase = s.get("phase", "")
+            phase_color = PHASE_COLORS.get(phase, "dim")
+            conf = s.get("confidence", "LOW")
+            conf_badge = CONFIDENCE_BADGE.get(conf, "[dim]LOW[/dim]")
+
+            table.add_row(
+                str(s.get("scan_timestamp", ""))[:19],
+                str(s.get("chain", "")),
+                f"[bold]{s.get('token_symbol', '')}[/bold]",
+                f"[{phase_color}]{phase}[/{phase_color}]",
+                conf_badge,
+                f"{s.get('divergence_strength', 0):.2f}",
+                f"${s.get('price_usd', 0):.2f}" if s.get("price_usd") else "--",
+            )
+
+        console.print(table)
+
+    if not scans and not signals:
+        console.print("\n[dim]No history data. Run a scan first.[/dim]")
+
+    console.print()

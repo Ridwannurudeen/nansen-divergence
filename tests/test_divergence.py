@@ -9,7 +9,6 @@ from nansen_divergence.divergence import (
     score_divergence,
 )
 
-
 # --- Stablecoin filter ---
 
 
