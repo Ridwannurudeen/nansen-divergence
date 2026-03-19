@@ -22,7 +22,6 @@ from nansen_divergence import __version__  # noqa: E402
 from nansen_divergence.alerts import send_divergence_alerts, send_scan_summary  # noqa: E402
 from nansen_divergence.divergence import (  # noqa: E402
     alpha_score,
-    generate_narrative,
     is_divergent,
 )
 from nansen_divergence.history import (  # noqa: E402
