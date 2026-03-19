@@ -169,18 +169,20 @@ def validate_signals(
             scan_time = scan_time.replace(tzinfo=timezone.utc)
         days_ago = (now - scan_time).days
 
-        validations.append({
-            "token_address": row["token_address"],
-            "token_symbol": row["token_symbol"],
-            "chain": row["chain"],
-            "phase": row["phase"],
-            "confidence": row["confidence"],
-            "signal_price": signal_price,
-            "current_price": current_price,
-            "price_change_pct": round(pct_change, 1),
-            "days_ago": max(days_ago, 0),
-            "divergence_strength": row["divergence_strength"],
-        })
+        validations.append(
+            {
+                "token_address": row["token_address"],
+                "token_symbol": row["token_symbol"],
+                "chain": row["chain"],
+                "phase": row["phase"],
+                "confidence": row["confidence"],
+                "signal_price": signal_price,
+                "current_price": current_price,
+                "price_change_pct": round(pct_change, 1),
+                "days_ago": max(days_ago, 0),
+                "divergence_strength": row["divergence_strength"],
+            }
+        )
 
     return validations
 

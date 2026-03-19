@@ -81,9 +81,9 @@ def send_divergence_alerts(results: list[dict]) -> int:
     Returns the number of alerts sent. Capped at 5 to avoid spam.
     """
     divergent = [
-        r for r in results
-        if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION")
-        and r.get("confidence") in ("HIGH", "MEDIUM")
+        r
+        for r in results
+        if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION") and r.get("confidence") in ("HIGH", "MEDIUM")
     ]
 
     if not divergent:

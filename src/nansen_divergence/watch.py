@@ -87,7 +87,10 @@ def run_watch_loop(args):
                 from .formatter import print_scan_results, print_validation_section
 
                 print_scan_results(
-                    flat, radar, chains, args.timeframe,
+                    flat,
+                    radar,
+                    chains,
+                    args.timeframe,
                     summary=summary_data,
                     api_calls=api_calls_per_scan,
                 )
@@ -98,10 +101,7 @@ def run_watch_loop(args):
                 # Diff detection: find new HIGH/MED divergent signals
                 current_signals: set[tuple[str, str]] = set()
                 for r in flat:
-                    if (
-                        r.get("phase") in ("ACCUMULATION", "DISTRIBUTION")
-                        and r.get("confidence") in ("HIGH", "MEDIUM")
-                    ):
+                    if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION") and r.get("confidence") in ("HIGH", "MEDIUM"):
                         current_signals.add((r["chain"], r.get("token_address", "")))
 
                 new_signals = current_signals - previous_signals
@@ -120,14 +120,16 @@ def run_watch_loop(args):
                 # Telegram alerts
                 if use_telegram:
                     try:
-                        new_tokens = [
-                            r for r in flat
-                            if (r["chain"], r.get("token_address", "")) in new_signals
-                        ] if scan_count > 1 else [
-                            r for r in flat
-                            if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION")
-                            and r.get("confidence") in ("HIGH", "MEDIUM")
-                        ]
+                        new_tokens = (
+                            [r for r in flat if (r["chain"], r.get("token_address", "")) in new_signals]
+                            if scan_count > 1
+                            else [
+                                r
+                                for r in flat
+                                if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION")
+                                and r.get("confidence") in ("HIGH", "MEDIUM")
+                            ]
+                        )
                         if new_tokens:
                             sent = send_divergence_alerts(new_tokens)
                             if sent:
