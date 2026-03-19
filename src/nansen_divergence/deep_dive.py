@@ -1,4 +1,4 @@
-"""Deep dive into a specific token: flow intelligence, buyers/sellers, wallet profiling."""
+"""Deep dive into a specific token: flow intelligence, buyers/sellers, wallet profiling, indicators."""
 
 from rich.console import Console
 
@@ -10,9 +10,10 @@ console = Console(stderr=True, force_terminal=True)
 def deep_dive_token(chain: str, token: str, days: int = 30, profile_count: int = 3) -> dict:
     """Run a full deep dive on a single token.
 
-    Makes 2 + (profile_count * 2) API calls:
+    Makes 3 + (profile_count * 2) API calls:
       - flow-intelligence
       - who-bought-sold
+      - token-indicators (Nansen Score)
       - profiler labels + pnl-summary per top wallet
     """
     result = {"chain": chain, "token": token, "wallets": []}
@@ -27,17 +28,24 @@ def deep_dive_token(chain: str, token: str, days: int = 30, profile_count: int =
     wbs = nansen.who_bought_sold(chain, token, days=days)
     result["who_bought_sold"] = wbs
 
-    # 3. Profile top wallets
+    # 3. Token indicators (Nansen Score)
+    console.print(f"  [dim]Fetching token indicators for {token[:10]}...[/dim]")
+    indicators = nansen.token_indicators(chain, token)
+    result["indicators"] = indicators
+
+    # 4. Profile top wallets
     addresses = _extract_top_addresses(wbs, limit=profile_count)
     for addr in addresses:
         console.print(f"  [dim]Profiling wallet {addr[:10]}...[/dim]")
         labels = nansen.profiler_labels(addr, chain=chain)
         pnl = nansen.profiler_pnl_summary(addr, chain=chain, days=days)
-        result["wallets"].append({
-            "address": addr,
-            "labels": labels,
-            "pnl_summary": pnl,
-        })
+        result["wallets"].append(
+            {
+                "address": addr,
+                "labels": labels,
+                "pnl_summary": pnl,
+            }
+        )
 
     return result
 
@@ -74,4 +82,4 @@ def _extract_top_addresses(wbs_data: dict, limit: int = 3) -> list[str]:
 
 def count_api_calls(profile_count: int = 3) -> int:
     """Estimate API calls for a deep dive."""
-    return 2 + (profile_count * 2)  # flow-intel + wbs + (labels + pnl) per wallet
+    return 3 + (profile_count * 2)  # flow-intel + wbs + indicators + (labels + pnl) per wallet

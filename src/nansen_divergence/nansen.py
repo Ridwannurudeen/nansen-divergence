@@ -27,7 +27,9 @@ def _run(args: list[str]) -> dict:
     """Execute a nansen CLI command and return parsed JSON."""
     cmd = [_NANSEN_BIN] + args
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, shell=(os.name == "nt"))
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=60, shell=(os.name == "nt"), encoding="utf-8", errors="replace"
+        )
     except FileNotFoundError:
         print("Error: 'nansen' CLI not found. Install it: npm i -g @anthropic-ai/nansen", file=sys.stderr)
         sys.exit(1)
@@ -39,9 +41,13 @@ def _run(args: list[str]) -> dict:
         print(f"Error running: {' '.join(cmd)}\n{result.stderr}", file=sys.stderr)
         return {"success": False, "data": {"data": []}}
 
+    if not result.stdout:
+        print(f"Error: empty output from: {' '.join(cmd)}", file=sys.stderr)
+        return {"success": False, "data": {"data": []}}
+
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         print(f"Error: non-JSON output from: {' '.join(cmd)}", file=sys.stderr)
         return {"success": False, "data": {"data": []}}
 
@@ -101,6 +107,36 @@ def profiler_labels(address: str, chain: str = "ethereum") -> dict:
 def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) -> dict:
     """Get PnL summary for a wallet."""
     resp = _run(["research", "profiler", "pnl-summary", "--address", address, "--chain", chain, "--days", str(days)])
+    if resp.get("success"):
+        return resp["data"]
+    return {}
+
+
+def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
+    """Fetch individual smart money DEX trades with wallet labels."""
+    all_trades = []
+    for page in range(1, pages + 1):
+        resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
+        if resp.get("success"):
+            all_trades.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    return all_trades
+
+
+def smart_money_holdings(chain: str) -> list[dict]:
+    """Fetch smart money holdings with 24h balance changes."""
+    resp = _run(["research", "smart-money", "holdings", "--chain", chain])
+    if resp.get("success"):
+        return resp["data"].get("data", [])
+    return []
+
+
+def token_indicators(chain: str, token: str) -> dict:
+    """Fetch Nansen Score (risk/reward indicators) for a token."""
+    resp = _run(["research", "token", "indicators", "--chain", chain, "--token", token])
     if resp.get("success"):
         return resp["data"]
     return {}
