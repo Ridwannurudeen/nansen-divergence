@@ -1,0 +1,106 @@
+"""Wrapper around the Nansen CLI binary. Each function maps to one CLI command."""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+
+def _find_nansen() -> str:
+    """Find the nansen binary, handling Windows .cmd wrappers."""
+    # shutil.which handles .cmd/.bat on Windows automatically
+    path = shutil.which("nansen")
+    if path:
+        return path
+    # Fallback: common npm global location on Windows
+    npm_path = os.path.join(os.environ.get("APPDATA", ""), "npm", "nansen.cmd")
+    if os.path.isfile(npm_path):
+        return npm_path
+    return "nansen"
+
+
+_NANSEN_BIN = _find_nansen()
+
+
+def _run(args: list[str]) -> dict:
+    """Execute a nansen CLI command and return parsed JSON."""
+    cmd = [_NANSEN_BIN] + args
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, shell=(os.name == "nt"))
+    except FileNotFoundError:
+        print("Error: 'nansen' CLI not found. Install it: npm i -g @anthropic-ai/nansen", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print(f"Error: command timed out: {' '.join(cmd)}", file=sys.stderr)
+        return {"success": False, "data": {"data": []}}
+
+    if result.returncode != 0:
+        print(f"Error running: {' '.join(cmd)}\n{result.stderr}", file=sys.stderr)
+        return {"success": False, "data": {"data": []}}
+
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print(f"Error: non-JSON output from: {' '.join(cmd)}", file=sys.stderr)
+        return {"success": False, "data": {"data": []}}
+
+
+def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[dict]:
+    """Fetch top tokens from the screener. Returns list of token dicts."""
+    all_tokens = []
+    for page in range(1, pages + 1):
+        resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
+        if resp.get("success"):
+            all_tokens.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    return all_tokens
+
+
+def smart_money_netflow(chain: str) -> list[dict]:
+    """Fetch smart money net flows per token."""
+    all_flows = []
+    for page in range(1, 3):
+        resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
+        if resp.get("success"):
+            all_flows.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    return all_flows
+
+
+def flow_intelligence(chain: str, token: str, days: int = 30) -> dict:
+    """Get flow intelligence breakdown by label for a token."""
+    resp = _run(["research", "token", "flow-intelligence", "--chain", chain, "--token", token, "--days", str(days)])
+    if resp.get("success"):
+        return resp["data"]
+    return {}
+
+
+def who_bought_sold(chain: str, token: str, days: int = 30) -> dict:
+    """Get recent buyers and sellers for a token."""
+    resp = _run(["research", "token", "who-bought-sold", "--chain", chain, "--token", token, "--days", str(days)])
+    if resp.get("success"):
+        return resp["data"]
+    return {}
+
+
+def profiler_labels(address: str, chain: str = "ethereum") -> dict:
+    """Get behavioral and entity labels for a wallet."""
+    resp = _run(["research", "profiler", "labels", "--address", address, "--chain", chain])
+    if resp.get("success"):
+        return resp["data"]
+    return {}
+
+
+def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) -> dict:
+    """Get PnL summary for a wallet."""
+    resp = _run(["research", "profiler", "pnl-summary", "--address", address, "--chain", chain, "--days", str(days)])
+    if resp.get("success"):
+        return resp["data"]
+    return {}
