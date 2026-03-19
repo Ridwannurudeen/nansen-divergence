@@ -1,6 +1,6 @@
-# nansen-divergence v3.0
+# nansen-divergence v4.0
 
-**[Live Dashboard](https://nansen-divergence.streamlit.app/)** | Multi-chain smart money divergence scanner with Wyckoff phase classification, HTML dashboards, Streamlit web UI, signal validation, Telegram alerts, and watch mode. Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + optional REST API.
+**[Live Dashboard](https://nansen-divergence.streamlit.app/)** | Multi-chain smart money divergence scanner with Wyckoff phase classification, trading terminal UI, signal backtesting, Alpha Score ranking, and real-time alerts. Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + optional REST API.
 
 ## What It Does
 
@@ -13,13 +13,21 @@ Scans **9 blockchains** and classifies every token into a **Wyckoff market phase
 | **MARKUP** | Buying | Rising | Trend confirmed |
 | **MARKDOWN** | Selling | Falling | Capitulation |
 
-## What's New in v3.0
+## What's New in v4.0
 
-- **9 Chains** — Ethereum, BNB, Solana, Base, Arbitrum, Polygon, Optimism, Avalanche, Linea
-- **DexScreener Links** — Every token card includes a clickable DexScreener link for instant chart access
-- **New Token Detection** — Tokens never seen before are flagged with a `[NEW]` badge in CLI and HTML reports
-- **REST API Mode** — Set `NANSEN_API_KEY` env var to use the Nansen REST API instead of the CLI binary. Zero code changes needed — same functions, automatic dispatch.
-- **Streamlit Web Dashboard** — Full web UI with dark theme, chain selector, token tables, DexScreener links, SM radar, signal validation, and scan history. Deploy to Streamlit Cloud or run locally.
+- **Trading Terminal UI** — Full redesign with orange/amber dark theme, JetBrains Mono typography, custom HTML tables, and data-dense layout inspired by Bloomberg/TradingView
+- **Alpha Score** — Proprietary 0-100 scoring metric with gradient bars (cold blue → warm orange → hot red)
+- **Phase Heatmap** — Plotly treemap visualization of all tokens, colored by Wyckoff phase, sized by Alpha Score
+- **Signal Feed** — Real-time scrolling list of HIGH/MEDIUM divergent signals with phase-colored borders
+- **Signal Performance (Backtesting)** — Win rate, avg return, best/worst call stats with Plotly outcome chart — proves signal accuracy over time
+- **Chain Pulse Bar** — 9-chain status bar showing accumulation vs distribution dominance at a glance
+- **Token Deep-Dive Drawers** — Click any divergent token to see flow intelligence, Nansen Score, and wallet profiles inline
+- **Auto-Scan Mode** — Configurable auto-refresh (1-15 min intervals) for continuous monitoring
+- **Confidence Pills & Alpha Bars** — Custom HTML badges and gradient bars replace plain text for instant visual parsing
+
+### v3.0 (previous)
+
+- 9 Chains, DexScreener Links, New Token Detection, REST API Mode, Streamlit Dashboard
 
 ## Features
 
@@ -132,12 +140,17 @@ streamlit run streamlit_app.py
 ```
 
 The dashboard provides:
-- Chain multiselect (9 chains)
-- Timeframe and token limit controls
-- Metric cards (tokens, signals, coverage, confidence)
-- Phase-grouped token tables with DexScreener links
-- SM Radar and Signal Validation sections
-- Scan history
+- Trading terminal UI (orange/amber dark theme, monospace typography)
+- Chain Pulse Bar (9-chain phase dominance at a glance)
+- 6 metric cards (Tokens, Divergence, Win Rate, HIGH, MEDIUM, Avg Alpha)
+- Phase Heatmap (Plotly treemap — tokens as cells, color = phase, size = Alpha Score)
+- Signal Feed (scrolling HIGH/MEDIUM signals with phase-colored borders)
+- Custom HTML token tables with Alpha Score gradient bars, confidence pills, DexScreener links
+- Inline deep-dive drawers (flow intelligence, Nansen Score, wallet profiles)
+- Signal Performance section (backtesting stats + outcome chart)
+- SM Radar and Scan History sections
+- Auto-scan mode (1-15 min intervals)
+- Telegram alerts configuration in sidebar
 
 ### Telegram Setup
 
