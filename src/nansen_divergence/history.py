@@ -264,3 +264,46 @@ def clear_history(conn: sqlite3.Connection | None = None):
 
     if own_conn:
         conn.close()
+
+
+def backtest_stats(validations: list[dict]) -> dict:
+    """Compute win/loss stats from signal validations.
+
+    A 'win' is defined as:
+    - ACCUMULATION signal where price went UP (positive change)
+    - DISTRIBUTION signal where price went DOWN (negative change)
+    """
+    if not validations:
+        return {
+            "total_signals": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "avg_return": 0.0,
+            "best_return": 0.0,
+            "worst_return": 0.0,
+        }
+
+    wins = 0
+    returns = []
+
+    for v in validations:
+        pct = v.get("price_change_pct", 0)
+        phase = v.get("phase", "")
+        returns.append(pct)
+
+        if phase == "ACCUMULATION" and pct > 0:
+            wins += 1
+        elif phase == "DISTRIBUTION" and pct < 0:
+            wins += 1
+
+    total = len(validations)
+    return {
+        "total_signals": total,
+        "wins": wins,
+        "losses": total - wins,
+        "win_rate": round(wins / total * 100, 1) if total else 0.0,
+        "avg_return": round(sum(returns) / total, 1) if total else 0.0,
+        "best_return": max(returns) if returns else 0.0,
+        "worst_return": min(returns) if returns else 0.0,
+    }

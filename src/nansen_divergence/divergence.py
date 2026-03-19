@@ -162,3 +162,8 @@ def generate_narrative(token: dict) -> str:
     elif phase == "MARKDOWN":
         return f"{wallet_str} sold {flow_str} of {symbol} accelerating {pct:.1f}% decline"
     return ""
+
+
+def alpha_score(strength: float) -> int:
+    """Convert divergence strength (0-1) to Alpha Score (0-100)."""
+    return max(0, min(100, round(strength * 100)))
