@@ -1,6 +1,6 @@
 # nansen-divergence v3.0
 
-Multi-chain smart money divergence scanner with Wyckoff phase classification, HTML dashboards, Streamlit web UI, signal validation, Telegram alerts, and watch mode. Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + optional REST API.
+**[Live Dashboard](https://nansen-divergence.streamlit.app/)** | Multi-chain smart money divergence scanner with Wyckoff phase classification, HTML dashboards, Streamlit web UI, signal validation, Telegram alerts, and watch mode. Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + optional REST API.
 
 ## What It Does
 
