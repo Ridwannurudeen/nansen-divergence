@@ -14,10 +14,10 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 # Imports (after page config)
 # ---------------------------------------------------------------------------
-from src.nansen_divergence import __version__  # noqa: E402
-from src.nansen_divergence.divergence import is_divergent  # noqa: E402
-from src.nansen_divergence.report import DEXSCREENER_SLUGS  # noqa: E402
-from src.nansen_divergence.scanner import (  # noqa: E402
+from nansen_divergence import __version__  # noqa: E402
+from nansen_divergence.divergence import is_divergent  # noqa: E402
+from nansen_divergence.report import DEXSCREENER_SLUGS  # noqa: E402
+from nansen_divergence.scanner import (  # noqa: E402
     count_api_calls,
     flatten_and_rank,
     flatten_radar,
@@ -82,7 +82,7 @@ if scan_btn and chains:
 
         # New token detection
         try:
-            from src.nansen_divergence.history import detect_new_tokens, init_db, save_scan, validate_signals
+            from nansen_divergence.history import detect_new_tokens, init_db, save_scan, validate_signals
 
             db_conn = init_db()
             new_addrs = detect_new_tokens(flat, conn=db_conn)
@@ -232,7 +232,7 @@ if st.session_state.results is not None:
 
     # History tab
     try:
-        from src.nansen_divergence.history import get_recent_signals, get_scan_history
+        from nansen_divergence.history import get_recent_signals, get_scan_history
 
         with st.expander("📜 SCAN HISTORY", expanded=False):
             scans = get_scan_history(limit=10)
