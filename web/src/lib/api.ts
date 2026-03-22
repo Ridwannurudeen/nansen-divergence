@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetcher<T>(url: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`);
