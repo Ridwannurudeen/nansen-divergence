@@ -1,6 +1,6 @@
 """Wrapper around the Nansen CLI binary (or REST API / MCP API).
 
-Priority order: MCP API > REST API > CLI binary.
+Priority order: CLI binary > REST API > MCP API.
 Each function maps to one CLI command / API endpoint / MCP tool.
 """
 
@@ -112,11 +112,42 @@ def _run(args: list[str]) -> dict:
 def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[dict]:
     """Fetch top tokens from the screener. Returns list of token dicts.
 
-    Priority: MCP API > REST API > CLI binary.
+    Priority: CLI binary > REST API > MCP API.
     """
-    # --- MCP path (first priority) ---
+    # --- CLI path (first priority) ---
+    all_tokens: list[dict] = []
+    for page in range(1, pages + 1):
+        resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
+        if resp.get("success"):
+            all_tokens.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    if all_tokens:
+        return all_tokens
+
+    # --- REST API path ---
+    if _get_api_key():
+        all_tokens = []
+        for page in range(1, pages + 1):
+            resp = _api_post("/token-screener", {"chain": chain, "timeframe": timeframe, "page": page})
+            data = resp.get("data", resp)
+            if isinstance(data, dict):
+                all_tokens.extend(data.get("data", []))
+                if data.get("pagination", {}).get("is_last_page", True):
+                    break
+            elif isinstance(data, list):
+                all_tokens.extend(data)
+                break
+            else:
+                break
+        if all_tokens:
+            return all_tokens
+
+    # --- MCP fallback ---
     if _get_mcp_key():
-        all_tokens: list[dict] = []
+        all_tokens = []
         try:
             for page in range(1, pages + 1):
                 all_tokens.extend(mcp_token_screener(chain, page=page))
@@ -138,50 +169,26 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
                 pass  # SM screener is optional enrichment
             return all_tokens
 
-    # --- REST API path ---
-    if _get_api_key():
-        all_tokens = []
-        for page in range(1, pages + 1):
-            resp = _api_post("/token-screener", {"chain": chain, "timeframe": timeframe, "page": page})
-            data = resp.get("data", resp)
-            if isinstance(data, dict):
-                all_tokens.extend(data.get("data", []))
-                if data.get("pagination", {}).get("is_last_page", True):
-                    break
-            elif isinstance(data, list):
-                all_tokens.extend(data)
-                break
-            else:
-                break
-        return all_tokens
-
-    # --- CLI fallback ---
-    all_tokens = []
-    for page in range(1, pages + 1):
-        resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
-        if resp.get("success"):
-            all_tokens.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
-                break
-        else:
-            break
-    return all_tokens
+    return []
 
 
 def smart_money_netflow(chain: str) -> list[dict]:
     """Fetch smart money net flows per token.
 
-    Priority: MCP API > REST API > CLI binary.
+    Priority: CLI binary > REST API > MCP API.
     """
-    # --- MCP path (first priority) ---
-    if _get_mcp_key():
-        try:
-            flows = mcp_smart_money_netflow(chain)
-        except RuntimeError as exc:
-            print(f"MCP smart_money_netflow failed, falling back: {exc}", file=sys.stderr)
-            flows = []
-        if flows:
-            return flows
+    # --- CLI path (first priority) ---
+    all_flows: list[dict] = []
+    for page in range(1, 3):
+        resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
+        if resp.get("success"):
+            all_flows.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    if all_flows:
+        return all_flows
 
     # --- REST API path ---
     if _get_api_key():
@@ -198,18 +205,20 @@ def smart_money_netflow(chain: str) -> list[dict]:
                 break
             else:
                 break
-        return all_flows
+        if all_flows:
+            return all_flows
 
-    all_flows = []
-    for page in range(1, 3):
-        resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
-        if resp.get("success"):
-            all_flows.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
-                break
-        else:
-            break
-    return all_flows
+    # --- MCP fallback ---
+    if _get_mcp_key():
+        try:
+            flows = mcp_smart_money_netflow(chain)
+        except RuntimeError as exc:
+            print(f"MCP smart_money_netflow failed, falling back: {exc}", file=sys.stderr)
+            flows = []
+        if flows:
+            return flows
+
+    return []
 
 
 def flow_intelligence(chain: str, token: str, days: int = 30) -> dict:
@@ -263,17 +272,20 @@ def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) 
 def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
     """Fetch individual smart money DEX trades with wallet labels.
 
-    Priority: MCP API > REST API > CLI binary.
+    Priority: CLI binary > REST API > MCP API.
     """
-    # --- MCP path (first priority) ---
-    if _get_mcp_key():
-        try:
-            trades = mcp_smart_money_dex_trades(chain)
-        except RuntimeError as exc:
-            print(f"MCP smart_money_dex_trades failed, falling back: {exc}", file=sys.stderr)
-            trades = []
-        if trades:
-            return trades
+    # --- CLI path (first priority) ---
+    all_trades: list[dict] = []
+    for page in range(1, pages + 1):
+        resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
+        if resp.get("success"):
+            all_trades.extend(resp["data"]["data"])
+            if resp["data"].get("pagination", {}).get("is_last_page", True):
+                break
+        else:
+            break
+    if all_trades:
+        return all_trades
 
     # --- REST API path ---
     if _get_api_key():
@@ -290,26 +302,46 @@ def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
                 break
             else:
                 break
-        return all_trades
+        if all_trades:
+            return all_trades
 
-    all_trades = []
-    for page in range(1, pages + 1):
-        resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
-        if resp.get("success"):
-            all_trades.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
-                break
-        else:
-            break
-    return all_trades
+    # --- MCP fallback ---
+    if _get_mcp_key():
+        try:
+            trades = mcp_smart_money_dex_trades(chain)
+        except RuntimeError as exc:
+            print(f"MCP smart_money_dex_trades failed, falling back: {exc}", file=sys.stderr)
+            trades = []
+        if trades:
+            return trades
+
+    return []
 
 
 def smart_money_holdings(chain: str) -> list[dict]:
     """Fetch smart money holdings with 24h balance changes.
 
-    Priority: MCP API > REST API > CLI binary.
+    Priority: CLI binary > REST API > MCP API.
     """
-    # --- MCP path (first priority) ---
+    # --- CLI path (first priority) ---
+    resp = _run(["research", "smart-money", "holdings", "--chain", chain])
+    if resp.get("success"):
+        data = resp["data"].get("data", [])
+        if data:
+            return data
+
+    # --- REST API path ---
+    if _get_api_key():
+        resp = _api_post("/smart-money/holdings", {"chain": chain})
+        data = resp.get("data", resp)
+        if isinstance(data, dict):
+            items = data.get("data", [])
+            if items:
+                return items
+        if isinstance(data, list) and data:
+            return data
+
+    # --- MCP fallback ---
     if _get_mcp_key():
         try:
             holdings = mcp_smart_money_holdings(chain)
@@ -319,20 +351,6 @@ def smart_money_holdings(chain: str) -> list[dict]:
         if holdings:
             return holdings
 
-    # --- REST API path ---
-    if _get_api_key():
-        resp = _api_post("/smart-money/holdings", {"chain": chain})
-        data = resp.get("data", resp)
-        if isinstance(data, dict):
-            return data.get("data", [])
-        if isinstance(data, list):
-            return data
-        return []
-
-    # --- CLI fallback ---
-    resp = _run(["research", "smart-money", "holdings", "--chain", chain])
-    if resp.get("success"):
-        return resp["data"].get("data", [])
     return []
 
 
