@@ -12,7 +12,14 @@ import sys
 import urllib.error
 import urllib.request
 
-from .mcp_client import _get_mcp_key, mcp_smart_money_holdings, mcp_token_screener
+from .mcp_client import (
+    _get_mcp_key,
+    mcp_sm_token_screener,
+    mcp_smart_money_dex_trades,
+    mcp_smart_money_holdings,
+    mcp_smart_money_netflow,
+    mcp_token_screener,
+)
 
 # ---------------------------------------------------------------------------
 # REST API helpers
@@ -116,7 +123,19 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
         except RuntimeError as exc:
             print(f"MCP token_screener failed, falling back: {exc}", file=sys.stderr)
             all_tokens = []
+
+        # Merge SM-active tokens so the scanner has targets for SM trade matching.
+        # SM traders often trade different tokens than what appears in the
+        # market-wide screener; including them ensures divergence scoring works.
         if all_tokens:
+            try:
+                sm_tokens = mcp_sm_token_screener(chain, pages=1)
+                existing = {(t.get("token_address") or "").lower() for t in all_tokens}
+                for st in sm_tokens:
+                    if (st.get("token_address") or "").lower() not in existing:
+                        all_tokens.append(st)
+            except RuntimeError:
+                pass  # SM screener is optional enrichment
             return all_tokens
 
     # --- REST API path ---
@@ -150,7 +169,21 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
 
 
 def smart_money_netflow(chain: str) -> list[dict]:
-    """Fetch smart money net flows per token."""
+    """Fetch smart money net flows per token.
+
+    Priority: MCP API > REST API > CLI binary.
+    """
+    # --- MCP path (first priority) ---
+    if _get_mcp_key():
+        try:
+            flows = mcp_smart_money_netflow(chain)
+        except RuntimeError as exc:
+            print(f"MCP smart_money_netflow failed, falling back: {exc}", file=sys.stderr)
+            flows = []
+        if flows:
+            return flows
+
+    # --- REST API path ---
     if _get_api_key():
         all_flows = []
         for page in range(1, 3):
@@ -228,7 +261,21 @@ def profiler_pnl_summary(address: str, chain: str = "ethereum", days: int = 30) 
 
 
 def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
-    """Fetch individual smart money DEX trades with wallet labels."""
+    """Fetch individual smart money DEX trades with wallet labels.
+
+    Priority: MCP API > REST API > CLI binary.
+    """
+    # --- MCP path (first priority) ---
+    if _get_mcp_key():
+        try:
+            trades = mcp_smart_money_dex_trades(chain)
+        except RuntimeError as exc:
+            print(f"MCP smart_money_dex_trades failed, falling back: {exc}", file=sys.stderr)
+            trades = []
+        if trades:
+            return trades
+
+    # --- REST API path ---
     if _get_api_key():
         all_trades = []
         for page in range(1, pages + 1):

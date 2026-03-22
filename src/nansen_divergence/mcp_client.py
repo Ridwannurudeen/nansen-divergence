@@ -363,6 +363,197 @@ def mcp_token_screener(chain: str, page: int = 1) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# SM-only token screener (shared helper)
+# ---------------------------------------------------------------------------
+
+def _mcp_sm_screener_rows(chain: str, pages: int = 2) -> list[dict]:
+    """Call ``token_discovery_screener`` with ``onlySmartTradersAndFunds=true``.
+
+    Returns raw parsed rows (not yet mapped to scanner format).
+    Each row has the same markdown columns as the regular screener
+    but filtered to Smart Trader & Fund activity only.
+    """
+    all_rows: list[dict] = []
+    for page in range(1, pages + 1):
+        text = _mcp_call(
+            "token_discovery_screener",
+            {
+                "request": {
+                    "chains": [chain],
+                    "page": page,
+                    "onlySmartTradersAndFunds": True,
+                },
+            },
+        )
+        rows = _parse_markdown_table(text)
+        all_rows.extend(rows)
+        if len(rows) < 20:  # Less than a full page → last page
+            break
+    return all_rows
+
+
+# ---------------------------------------------------------------------------
+# Smart money DEX trades (via SM screener)
+# ---------------------------------------------------------------------------
+
+
+def mcp_sm_token_screener(chain: str, pages: int = 2) -> list[dict]:
+    """Call the SM-only screener and return tokens in the SAME format
+    as ``mcp_token_screener()`` so they can be merged into the main
+    token list used by ``scan_chain()``.
+
+    This lets the scanner include SM-active tokens alongside market
+    screener tokens, providing proper divergence scoring for tokens
+    where SM is most active.
+    """
+    raw_rows = _mcp_sm_screener_rows(chain, pages=pages)
+    results: list[dict] = []
+
+    for raw in raw_rows:
+        token_addr = raw.get("Token Address", "") or raw.get("token_address", "")
+        if not token_addr:
+            continue
+
+        raw_symbol = raw.get("Symbol", "") or raw.get("symbol", "")
+        is_new = _SPROUT in raw_symbol
+        symbol = raw_symbol.replace(_SPROUT, "").strip()
+
+        price_change_raw = raw.get("Price Change", "") or raw.get("price_change", "")
+        price_change = _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
+
+        mcap_raw = raw.get("Market Cap", "") or raw.get("market_cap", "")
+        mcap = _parse_number(mcap_raw) if isinstance(mcap_raw, str) else float(mcap_raw or 0)
+
+        netflow_raw = raw.get("Net Flow USD", "") or raw.get("net_flow_usd", "")
+        netflow = _parse_number(netflow_raw) if isinstance(netflow_raw, str) else float(netflow_raw or 0)
+
+        buy_raw = raw.get("Buy USD Volume", "") or raw.get("buy_usd_volume", "")
+        sell_raw = raw.get("Sell USD Volume", "") or raw.get("sell_usd_volume", "")
+        buy_vol = _parse_number(buy_raw) if isinstance(buy_raw, str) else float(buy_raw or 0)
+        sell_vol = _parse_number(sell_raw) if isinstance(sell_raw, str) else float(sell_raw or 0)
+        volume = buy_vol + sell_vol if (buy_vol or sell_vol) else 0.0
+
+        price_raw = raw.get("Price USD", "") or raw.get("price_usd", "")
+        price = _parse_number(price_raw) if isinstance(price_raw, str) else float(price_raw or 0)
+
+        age_raw = raw.get("Token Age (Days)", "") or raw.get("token_age_days", "")
+        age = _parse_number(age_raw) if isinstance(age_raw, str) else float(age_raw or 0)
+
+        resp_chain = raw.get("Chain", "") or raw.get("chain", "") or chain
+
+        results.append({
+            "token_address": token_addr,
+            "token_symbol": symbol,
+            "chain": resp_chain,
+            "price_usd": price,
+            "price_change": price_change,
+            "market_cap": mcap,
+            "market_netflow": netflow,
+            "volume_24h": volume,
+            "token_age_days": age,
+            "is_new": is_new,
+            "market_cap_usd": mcap,
+            "netflow": netflow,
+            "volume": volume,
+        })
+
+    return results
+
+
+def mcp_smart_money_dex_trades(chain: str) -> list[dict]:
+    """Get SM buy/sell activity per token via the SM-only screener.
+
+    Returns synthetic trade records in "simple format" that
+    ``aggregate_sm_trades()`` can consume directly:
+      {token_address, side, amount_usd, wallet_address, label}
+
+    For each SM screener row with nonzero buy or sell volume,
+    we emit one BUY record and/or one SELL record.
+    """
+    raw_rows = _mcp_sm_screener_rows(chain)
+    trades: list[dict] = []
+
+    for raw in raw_rows:
+        token_addr = raw.get("Token Address", "") or raw.get("token_address", "")
+        if not token_addr:
+            continue
+
+        buy_raw = raw.get("Buy USD Volume", "") or raw.get("buy_usd_volume", "")
+        sell_raw = raw.get("Sell USD Volume", "") or raw.get("sell_usd_volume", "")
+        buy_vol = _parse_number(buy_raw) if isinstance(buy_raw, str) else float(buy_raw or 0)
+        sell_vol = _parse_number(sell_raw) if isinstance(sell_raw, str) else float(sell_raw or 0)
+
+        if buy_vol > 0:
+            trades.append({
+                "token_address": token_addr,
+                "side": "buy",
+                "amount_usd": buy_vol,
+                "wallet_address": "sm_aggregate",
+                "label": "Smart Traders & Funds",
+            })
+        if sell_vol > 0:
+            trades.append({
+                "token_address": token_addr,
+                "side": "sell",
+                "amount_usd": sell_vol,
+                "wallet_address": "sm_aggregate",
+                "label": "Smart Traders & Funds",
+            })
+
+    return trades
+
+
+# ---------------------------------------------------------------------------
+# Smart money netflow (via SM screener → radar format)
+# ---------------------------------------------------------------------------
+
+
+def mcp_smart_money_netflow(chain: str) -> list[dict]:
+    """Get SM netflow per token via the SM-only screener.
+
+    Returns dicts in the format ``smart_money_netflow()`` / CLI would
+    return, used by ``scan_chain()`` to build the SM Radar:
+      token_address, token_symbol, net_flow_24h_usd, net_flow_7d_usd,
+      trader_count, token_sectors, market_cap_usd
+    """
+    raw_rows = _mcp_sm_screener_rows(chain)
+    results: list[dict] = []
+
+    for raw in raw_rows:
+        token_addr = raw.get("Token Address", "") or raw.get("token_address", "")
+        if not token_addr:
+            continue
+
+        raw_symbol = raw.get("Symbol", "") or raw.get("symbol", "") or raw.get("Token Symbol", "")
+        symbol = raw_symbol.replace(_SPROUT, "").strip()
+
+        netflow_raw = raw.get("Net Flow USD", "") or raw.get("net_flow_usd", "")
+        netflow = _parse_number(netflow_raw) if isinstance(netflow_raw, str) else float(netflow_raw or 0)
+
+        mcap_raw = raw.get("Market Cap", "") or raw.get("market_cap", "")
+        mcap = _parse_number(mcap_raw) if isinstance(mcap_raw, str) else float(mcap_raw or 0)
+
+        # Volume as proxy for trader activity
+        vol_raw = raw.get("USD Volume", "") or raw.get("usd_volume", "")
+        vol = _parse_number(vol_raw) if isinstance(vol_raw, str) else float(vol_raw or 0)
+
+        # Estimate trader count from buy+sell volume ratio (1 per ~$50k activity)
+        trader_est = max(1, int(vol / 50_000)) if vol > 0 else 0
+
+        results.append({
+            "token_address": token_addr,
+            "token_symbol": symbol,
+            "net_flow_24h_usd": netflow,
+            "net_flow_7d_usd": 0,  # SM screener only has 24h data
+            "trader_count": trader_est,
+            "token_sectors": [],
+            "market_cap_usd": mcap,
+        })
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Smart money holdings
 # ---------------------------------------------------------------------------
 

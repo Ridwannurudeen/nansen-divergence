@@ -156,9 +156,20 @@ def scan_chain(
     console.print(f"  [dim]Fetching SM netflow for [bold]{chain}[/bold]...[/dim]")
     netflow = nansen.smart_money_netflow(chain)
 
-    # Build target address set from screener tokens
+    # Deduplicate tokens (MCP pagination can return duplicates)
+    seen_addrs: set[str] = set()
+    unique_tokens: list[dict] = []
+    for t in tokens:
+        addr = (t.get("token_address") or "").lower()
+        if addr and addr not in seen_addrs:
+            seen_addrs.add(addr)
+            unique_tokens.append(t)
+
+    # Build target address set from ALL screener tokens (including
+    # SM-active tokens merged in by the MCP path) so that SM trade
+    # records can match against them.
     target_addrs = set()
-    for t in tokens[:limit]:
+    for t in unique_tokens:
         addr = (t.get("token_address") or "").lower()
         if addr:
             target_addrs.add(addr)
@@ -171,7 +182,7 @@ def scan_chain(
     screener_addrs = set()
     results = []
 
-    for token in tokens[:limit]:
+    for token in unique_tokens:
         addr = (token.get("token_address") or "").lower()
         symbol = token.get("token_symbol") or "???"
         screener_addrs.add(addr)
@@ -237,10 +248,12 @@ def scan_chain(
         token_data["narrative"] = generate_narrative(token_data)
         results.append(token_data)
 
-    # Sort by divergence strength descending
+    # Sort by divergence strength descending, then limit output
     results.sort(key=lambda x: x["divergence_strength"], reverse=True)
+    results = results[:limit]
 
-    # SM Radar: tokens in netflow but NOT in screener
+    # SM Radar: tokens in netflow but NOT in final results
+    result_addrs = {(r.get("token_address") or "").lower() for r in results}
     sm_netflow_map = {}
     for f in netflow:
         nf_addr = (f.get("token_address") or "").lower()
@@ -249,7 +262,7 @@ def scan_chain(
 
     sm_radar = []
     for nf_addr, f in sm_netflow_map.items():
-        if nf_addr not in screener_addrs:
+        if nf_addr not in result_addrs:
             symbol = f.get("token_symbol") or "???"
             if not include_stables and is_stablecoin(symbol):
                 continue
