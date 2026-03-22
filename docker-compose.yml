@@ -1,0 +1,23 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: nansen-api
+    ports:
+      - "127.0.0.1:8010:8010"
+    env_file: .env
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ""
+    container_name: nansen-web
+    ports:
+      - "127.0.0.1:3010:3010"
+    depends_on:
+      - api
+    restart: unless-stopped
