@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Token } from "@/lib/types";
+import { fmtUsd, DEXSCREENER_SLUGS } from "@/lib/utils";
 
 const PHASE_ORDER = ["ACCUMULATION", "DISTRIBUTION", "MARKUP", "MARKDOWN"] as const;
 const PHASE_LABELS: Record<string, { label: string; color: string; desc: string }> = {
@@ -10,21 +12,6 @@ const PHASE_LABELS: Record<string, { label: string; color: string; desc: string 
   MARKUP: { label: "MARKUP", color: "text-neutral", desc: "Trend confirmed" },
   MARKDOWN: { label: "MARKDOWN", color: "text-warning", desc: "Capitulation" },
 };
-
-const DEXSCREENER_SLUGS: Record<string, string> = {
-  ethereum: "ethereum", bnb: "bsc", solana: "solana", base: "base",
-  arbitrum: "arbitrum", polygon: "polygon", optimism: "optimism", avalanche: "avalanche", linea: "linea",
-};
-
-function fmtUsd(val: number): string {
-  const sign = val > 0 ? "+" : val < 0 ? "-" : "";
-  const abs = Math.abs(val);
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
-  if (abs >= 1) return `${sign}$${abs.toFixed(0)}`;
-  return `${sign}$${abs.toFixed(2)}`;
-}
 
 function AlphaBar({ score }: { score: number }) {
   const color = score >= 70 ? "#f43f5e" : score >= 40 ? "#f97316" : "#6366f1";
@@ -104,6 +91,8 @@ export function TokenTable({ results }: TokenTableProps) {
                     <th className="text-left py-2 px-2">Chain</th>
                     <th className="text-right py-2 px-2">Price</th>
                     <th className="text-right py-2 px-2">Flow</th>
+                    <th className="text-right py-2 px-2">Buy</th>
+                    <th className="text-right py-2 px-2">Sell</th>
                     <th className="text-left py-2 px-2 w-32">Alpha</th>
                     <th className="text-center py-2 px-2">Conf</th>
                     <th className="text-center py-2 px-2">Chart</th>
@@ -115,9 +104,11 @@ export function TokenTable({ results }: TokenTableProps) {
                     const slug = DEXSCREENER_SLUGS[t.chain] || t.chain;
                     const dexUrl = `https://dexscreener.com/${slug}/${t.token_address}`;
                     return (
-                      <tr key={`${t.chain}-${t.token_address}-${i}`} className="border-b border-border/50 hover:bg-surface/50">
+                      <tr key={`${t.chain}-${t.token_address}-${i}`} className="border-b border-border/50 hover:bg-surface/50 cursor-pointer">
                         <td className="py-2 px-2">
-                          <span className="text-white font-bold">{t.token_symbol}</span>
+                          <Link href={`/token/${t.chain}/${t.token_address}`} className="text-white font-bold hover:text-accent">
+                            {t.token_symbol}
+                          </Link>
                           {t.is_new && <span className="ml-1 text-xs bg-bearish text-white px-1 rounded">NEW</span>}
                         </td>
                         <td className="py-2 px-2 text-muted">{t.chain}</td>
@@ -127,10 +118,12 @@ export function TokenTable({ results }: TokenTableProps) {
                         <td className={`py-2 px-2 text-right ${flow > 0 ? "text-bullish" : "text-bearish"}`}>
                           {fmtUsd(flow)}
                         </td>
+                        <td className="py-2 px-2 text-right text-bullish">{fmtUsd(t.sm_buy_volume)}</td>
+                        <td className="py-2 px-2 text-right text-bearish">{fmtUsd(t.sm_sell_volume)}</td>
                         <td className="py-2 px-2"><AlphaBar score={t.alpha_score} /></td>
                         <td className="py-2 px-2 text-center"><ConfPill confidence={t.confidence} /></td>
                         <td className="py-2 px-2 text-center">
-                          <a href={dexUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-secondary">
+                          <a href={dexUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-secondary" onClick={(e) => e.stopPropagation()}>
                             View
                           </a>
                         </td>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Navigation } from "@/components/Navigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,7 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
-      <body className="bg-bg min-h-screen">{children}</body>
+      <body className="bg-bg min-h-screen grid-bg">
+        <Navigation />
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,4 +1,5 @@
 import { Token } from "@/lib/types";
+import { fmtUsd } from "@/lib/utils";
 
 const PHASE_COLORS: Record<string, string> = {
   ACCUMULATION: "border-bullish",
@@ -12,15 +13,6 @@ const CONF_STYLES: Record<string, string> = {
   MEDIUM: "bg-accent text-bg",
   LOW: "bg-surface text-muted",
 };
-
-function fmtUsd(val: number): string {
-  const sign = val > 0 ? "+" : val < 0 ? "-" : "";
-  const abs = Math.abs(val);
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
-  return `${sign}$${abs.toFixed(0)}`;
-}
 
 interface SignalFeedProps {
   results: Token[];
@@ -39,7 +31,7 @@ export function SignalFeed({ results }: SignalFeedProps) {
   return (
     <div className="space-y-2 max-h-[420px] overflow-y-auto pr-2">
       {signals.map((t, i) => (
-        <div key={`${t.chain}-${t.token_address}-${i}`} className={`border-l-4 ${PHASE_COLORS[t.phase]} bg-surface rounded-r px-3 py-2`}>
+        <div key={`${t.chain}-${t.token_address}-${i}`} className={`border-l-4 ${PHASE_COLORS[t.phase]} bg-surface rounded-r px-3 py-2 animate-slide-up`} style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}>
           <div className="flex items-center gap-2 text-sm font-mono">
             <span className="font-bold text-white">{t.token_symbol}</span>
             <span className="text-muted text-xs">{t.chain.slice(0, 3).toUpperCase()}</span>

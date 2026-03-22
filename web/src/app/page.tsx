@@ -9,6 +9,7 @@ import { ChainPulse } from "@/components/ChainPulse";
 import { MetricCards } from "@/components/MetricCards";
 import { SignalFeed } from "@/components/SignalFeed";
 import { TokenTable } from "@/components/TokenTable";
+import { HeatMap } from "@/components/HeatMap";
 
 export default function Home() {
   const { data, error, isLoading } = useSWR<ScanData>("/api/scan/latest", fetcher, {
@@ -56,6 +57,8 @@ export default function Home() {
             backtest={data.backtest || { total_signals: 0, wins: 0, losses: 0, win_rate: 0, avg_return: 0, best_return: 0, worst_return: 0 }}
             avgAlpha={avgAlpha}
           />
+
+          <HeatMap results={filteredResults} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 py-4">
             <div className="lg:col-span-2">
