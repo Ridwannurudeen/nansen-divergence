@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -553,6 +555,46 @@ function Indicators({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+function DivergenceHistory({ chain, address }: { chain: string; address: string }) {
+  const { data, isLoading } = useSWR<{ history: { scan_timestamp: string; divergence_strength: number; phase: string; price_usd: number }[] }>(
+    `/api/token/${chain}/${address}/history?days=14`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  if (isLoading) return <ChartSkeleton height="h-48" />;
+  if (!data?.history || data.history.length < 2) return null;
+
+  const chartData = data.history.map((h) => ({
+    time: new Date(h.scan_timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    strength: h.divergence_strength,
+    price: h.price_usd,
+  }));
+
+  return (
+    <Card>
+      <CardHeader>Divergence Strength (14d)</CardHeader>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="divGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
+              <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="time" tick={{ fill: "#737373", fontSize: 10, fontFamily: "monospace" }} stroke="#2a2a2a" />
+          <YAxis tick={{ fill: "#737373", fontSize: 10, fontFamily: "monospace" }} stroke="#2a2a2a" domain={[0, 1]} />
+          <Tooltip
+            contentStyle={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 6, fontFamily: "monospace", fontSize: 12 }}
+            formatter={(v: number) => [v.toFixed(2), "Strength"]}
+          />
+          <Area type="monotone" dataKey="strength" stroke="#f97316" fill="url(#divGrad)" strokeWidth={2} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
 /* ---------- main page ---------- */
 
 interface SummaryResponse {
@@ -630,6 +672,11 @@ export default function TokenPage({
       {token && (
         <>
           <SummarySection token={token} />
+
+          {/* Historical divergence chart */}
+          <div className="mt-4">
+            <DivergenceHistory chain={chain} address={address} />
+          </div>
 
           {/* External links */}
           <div className="mt-4">

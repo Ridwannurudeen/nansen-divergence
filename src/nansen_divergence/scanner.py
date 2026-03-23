@@ -1,5 +1,7 @@
 """Core scan logic: fetch data from Nansen, aggregate SM trades, score, and classify tokens."""
 
+import time
+
 from rich.console import Console
 
 from . import nansen
@@ -292,11 +294,20 @@ def scan_multi_chain(
     """Scan multiple chains. Returns (chain_results, chain_sm_radar)."""
     all_results = {}
     all_radar = {}
-    for chain in chains:
-        console.print(f"\n[bold cyan]Scanning {chain.upper()}...[/bold cyan]")
-        results, radar = scan_chain(chain, timeframe, limit, include_stables=include_stables)
-        all_results[chain] = results
-        all_radar[chain] = radar
+    total = len(chains)
+    for idx, chain in enumerate(chains, 1):
+        console.print(f"\n[bold cyan][{idx}/{total}] Scanning {chain.upper()}...[/bold cyan]")
+        try:
+            results, radar = scan_chain(chain, timeframe, limit, include_stables=include_stables)
+            all_results[chain] = results
+            all_radar[chain] = radar
+            console.print(f"  [green]✓ {chain.upper()}: {len(results)} tokens, {len(radar)} radar[/green]")
+        except Exception as e:
+            console.print(f"  [red]✗ {chain.upper()} failed: {e}[/red]")
+            all_results[chain] = []
+            all_radar[chain] = []
+        if idx < total:
+            time.sleep(2)
     return all_results, all_radar
 
 

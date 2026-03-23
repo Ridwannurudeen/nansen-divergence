@@ -105,6 +105,14 @@ def deep_dive(chain: str, token: str, x_nansen_key: str = Header(None)):
     return data
 
 
+@app.get("/api/token/{chain}/{address}/history")
+def token_history(chain: str, address: str, days: int = 30):
+    """Time-series of divergence strength, phase, price for a token."""
+    from nansen_divergence.history import get_token_history
+    history = get_token_history(chain, address, days=days)
+    return {"history": history}
+
+
 @app.get("/api/token/{chain}/{address}")
 def token_deep_dive(chain: str, address: str):
     """Deep-dive using server-side Nansen API key (no client key needed)."""
@@ -181,6 +189,22 @@ def cross_chain_flows():
             sectors[sector]["tokens"].append(r.get("token_symbol", "???"))
 
     return {"chains": chains, "sectors": sectors, "timestamp": data.get("timestamp")}
+
+
+@app.get("/api/history/sparklines")
+def history_sparklines(days: int = 7, points: int = 10):
+    """Sparkline data for token table mini-charts."""
+    from nansen_divergence.history import get_sparkline_data
+    sparklines = get_sparkline_data(days=days, points=points)
+    return {"sparklines": sparklines}
+
+
+@app.get("/api/history/streaks")
+def history_streaks(days: int = 14):
+    """Signal streak data for consecutive same-phase detections."""
+    from nansen_divergence.history import get_signal_streaks
+    streaks = get_signal_streaks(days=days)
+    return {"streaks": streaks}
 
 
 @app.get("/api/history/outcomes")

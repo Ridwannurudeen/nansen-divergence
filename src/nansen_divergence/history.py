@@ -50,6 +50,10 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
             FOREIGN KEY (scan_id) REFERENCES scans(id)
         )
     """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_signals_chain_token_time
+        ON signals (chain, token_address, scan_timestamp)
+    """)
     conn.commit()
     return conn
 
@@ -307,3 +311,115 @@ def backtest_stats(validations: list[dict]) -> dict:
         "best_return": max(returns) if returns else 0.0,
         "worst_return": min(returns) if returns else 0.0,
     }
+
+
+def get_token_history(
+    chain: str,
+    token_address: str,
+    days: int = 30,
+    conn: sqlite3.Connection | None = None,
+) -> list[dict]:
+    """Return time-series of divergence_strength, phase, price, confidence for a token."""
+    own_conn = conn is None
+    if own_conn:
+        conn = init_db()
+
+    rows = conn.execute(
+        """SELECT scan_timestamp, divergence_strength, phase, confidence,
+                  price_usd, price_change, sm_net_flow
+           FROM signals
+           WHERE chain = ? AND LOWER(token_address) = LOWER(?)
+             AND scan_timestamp >= datetime('now', ?)
+           ORDER BY scan_timestamp ASC""",
+        (chain, token_address, f"-{days} days"),
+    ).fetchall()
+
+    if own_conn:
+        conn.close()
+
+    return [dict(r) for r in rows]
+
+
+def get_sparkline_data(
+    days: int = 7,
+    points: int = 10,
+    conn: sqlite3.Connection | None = None,
+) -> dict[str, list[float]]:
+    """Return {token_address_lower: [strength1, strength2, ...]} for sparkline mini-charts.
+
+    Returns the last `points` divergence_strength values per token within the window.
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = init_db()
+
+    rows = conn.execute(
+        """SELECT LOWER(token_address) as addr, divergence_strength, scan_timestamp
+           FROM signals
+           WHERE scan_timestamp >= datetime('now', ?)
+           ORDER BY scan_timestamp ASC""",
+        (f"-{days} days",),
+    ).fetchall()
+
+    if own_conn:
+        conn.close()
+
+    # Collect all points per token, then keep last N
+    all_points: dict[str, list[float]] = {}
+    for r in rows:
+        addr = r["addr"]
+        if addr not in all_points:
+            all_points[addr] = []
+        all_points[addr].append(r["divergence_strength"])
+
+    return {addr: vals[-points:] for addr, vals in all_points.items()}
+
+
+def get_signal_streaks(
+    days: int = 14,
+    conn: sqlite3.Connection | None = None,
+) -> dict[str, dict]:
+    """Return {addr: {phase, streak, since}} for tokens with consecutive same-phase scans.
+
+    Only reports streaks >= 2.
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = init_db()
+
+    rows = conn.execute(
+        """SELECT LOWER(token_address) as addr, phase, scan_timestamp
+           FROM signals
+           WHERE scan_timestamp >= datetime('now', ?)
+           ORDER BY scan_timestamp DESC""",
+        (f"-{days} days",),
+    ).fetchall()
+
+    if own_conn:
+        conn.close()
+
+    # Track consecutive same-phase scans per token (most recent first)
+    token_scans: dict[str, list[dict]] = {}
+    for r in rows:
+        addr = r["addr"]
+        if addr not in token_scans:
+            token_scans[addr] = []
+        token_scans[addr].append({"phase": r["phase"], "ts": r["scan_timestamp"]})
+
+    streaks: dict[str, dict] = {}
+    for addr, scans in token_scans.items():
+        if len(scans) < 2:
+            continue
+        phase = scans[0]["phase"]
+        streak = 1
+        since = scans[0]["ts"]
+        for s in scans[1:]:
+            if s["phase"] == phase:
+                streak += 1
+                since = s["ts"]
+            else:
+                break
+        if streak >= 2:
+            streaks[addr] = {"phase": phase, "streak": streak, "since": since}
+
+    return streaks

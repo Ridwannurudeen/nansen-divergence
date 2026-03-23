@@ -8,6 +8,9 @@ from nansen_divergence.history import (
     detect_new_tokens,
     get_recent_signals,
     get_scan_history,
+    get_signal_streaks,
+    get_sparkline_data,
+    get_token_history,
     init_db,
     save_scan,
     validate_signals,
@@ -295,4 +298,92 @@ class TestClearHistory:
     def test_clear_empty_db(self):
         conn = _temp_db()
         clear_history(conn=conn)  # Should not raise
+        conn.close()
+
+
+class TestGetTokenHistory:
+    def test_returns_history(self):
+        conn = _temp_db()
+        save_scan([_make_token(chain="ethereum", address="0xA")], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(chain="ethereum", address="0xA", strength=0.8)], ["ethereum"], "24h", conn=conn)
+        history = get_token_history("ethereum", "0xA", days=7, conn=conn)
+        assert len(history) == 2
+        assert history[0]["divergence_strength"] == 0.65
+        assert history[1]["divergence_strength"] == 0.8
+        conn.close()
+
+    def test_empty_for_unknown_token(self):
+        conn = _temp_db()
+        save_scan([_make_token()], ["ethereum"], "24h", conn=conn)
+        history = get_token_history("ethereum", "0xUNKNOWN", days=7, conn=conn)
+        assert history == []
+        conn.close()
+
+    def test_case_insensitive_address(self):
+        conn = _temp_db()
+        save_scan([_make_token(address="0xAbCdEf")], ["ethereum"], "24h", conn=conn)
+        history = get_token_history("ethereum", "0xabcdef", days=7, conn=conn)
+        assert len(history) == 1
+        conn.close()
+
+
+class TestGetSparklineData:
+    def test_returns_sparklines(self):
+        conn = _temp_db()
+        save_scan([_make_token(address="0xA", strength=0.5)], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(address="0xA", strength=0.7)], ["ethereum"], "24h", conn=conn)
+        sparklines = get_sparkline_data(days=7, points=10, conn=conn)
+        assert "0xA".lower() in sparklines or "0xa" in sparklines
+        vals = sparklines.get("0xa", sparklines.get("0xA".lower(), []))
+        assert len(vals) == 2
+        assert vals[0] == 0.5
+        assert vals[1] == 0.7
+        conn.close()
+
+    def test_limits_points(self):
+        conn = _temp_db()
+        for i in range(5):
+            save_scan([_make_token(address="0xA", strength=i * 0.1)], ["ethereum"], "24h", conn=conn)
+        sparklines = get_sparkline_data(days=7, points=3, conn=conn)
+        vals = sparklines.get("0xa", [])
+        assert len(vals) == 3
+        # Should be the last 3 values
+        assert vals[0] == 0.2
+        conn.close()
+
+    def test_empty_db(self):
+        conn = _temp_db()
+        sparklines = get_sparkline_data(days=7, conn=conn)
+        assert sparklines == {}
+        conn.close()
+
+
+class TestGetSignalStreaks:
+    def test_detects_streak(self):
+        conn = _temp_db()
+        save_scan([_make_token(address="0xA", phase="ACCUMULATION")], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(address="0xA", phase="ACCUMULATION")], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(address="0xA", phase="ACCUMULATION")], ["ethereum"], "24h", conn=conn)
+        streaks = get_signal_streaks(days=14, conn=conn)
+        assert "0xa" in streaks
+        assert streaks["0xa"]["phase"] == "ACCUMULATION"
+        assert streaks["0xa"]["streak"] == 3
+        conn.close()
+
+    def test_no_streak_for_single_scan(self):
+        conn = _temp_db()
+        save_scan([_make_token(address="0xA")], ["ethereum"], "24h", conn=conn)
+        streaks = get_signal_streaks(days=14, conn=conn)
+        assert "0xa" not in streaks
+        conn.close()
+
+    def test_streak_breaks_on_phase_change(self):
+        conn = _temp_db()
+        save_scan([_make_token(address="0xA", phase="DISTRIBUTION")], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(address="0xA", phase="ACCUMULATION")], ["ethereum"], "24h", conn=conn)
+        save_scan([_make_token(address="0xA", phase="ACCUMULATION")], ["ethereum"], "24h", conn=conn)
+        streaks = get_signal_streaks(days=14, conn=conn)
+        assert "0xa" in streaks
+        assert streaks["0xa"]["streak"] == 2
+        assert streaks["0xa"]["phase"] == "ACCUMULATION"
         conn.close()

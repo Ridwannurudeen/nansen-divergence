@@ -11,10 +11,65 @@ import { SignalFeed } from "@/components/SignalFeed";
 import { TokenTable } from "@/components/TokenTable";
 import { HeatMap } from "@/components/HeatMap";
 
+function SkeletonPulse({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-surface rounded ${className}`} />;
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Chain pulse skeleton */}
+      <div className="flex gap-3 py-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonPulse key={i} className="h-8 w-16" />
+        ))}
+      </div>
+      {/* Metric cards skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonPulse key={i} className="h-24" />
+        ))}
+      </div>
+      {/* HeatMap skeleton */}
+      <SkeletonPulse className="h-20" />
+      {/* Signal + Radar skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonPulse key={i} className="h-14" />
+          ))}
+        </div>
+        <SkeletonPulse className="h-72" />
+      </div>
+      {/* Token table skeleton */}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonPulse key={i} className="h-8 w-28" />
+          ))}
+        </div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonPulse key={i} className="h-10" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const { data, error, isLoading } = useSWR<ScanData>("/api/scan/latest", fetcher, {
     refreshInterval: 60000,
   });
+  const { data: sparklineData } = useSWR<{ sparklines: Record<string, number[]> }>(
+    "/api/history/sparklines?days=7&points=10",
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+  const { data: streakData } = useSWR<{ streaks: Record<string, { phase: string; streak: number; since: string }> }>(
+    "/api/history/streaks?days=14",
+    fetcher,
+    { refreshInterval: 60000 }
+  );
   const [activeChain, setActiveChain] = useState<string | null>(null);
 
   const filteredResults = data?.results
@@ -31,11 +86,7 @@ export default function Home() {
     <main className="max-w-7xl mx-auto px-4 py-4">
       <Header timestamp={data?.timestamp} />
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-accent font-mono animate-pulse">Loading scan data...</div>
-        </div>
-      )}
+      {isLoading && <DashboardSkeleton />}
 
       {error && (
         <div className="bg-surface border border-bearish rounded-lg p-4 my-4 font-mono text-sm text-bearish">
@@ -63,7 +114,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 py-4">
             <div className="lg:col-span-2">
               <h2 className="font-mono font-bold text-sm text-muted mb-2">SIGNAL FEED</h2>
-              <SignalFeed results={filteredResults} />
+              <SignalFeed results={filteredResults} streaks={streakData?.streaks} />
             </div>
             <div>
               <h2 className="font-mono font-bold text-sm text-muted mb-2">SM RADAR</h2>
@@ -87,7 +138,7 @@ export default function Home() {
             </div>
           </div>
 
-          <TokenTable results={filteredResults} />
+          <TokenTable results={filteredResults} sparklines={sparklineData?.sparklines} />
         </>
       )}
 

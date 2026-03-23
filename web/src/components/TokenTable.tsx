@@ -6,12 +6,34 @@ import { Token } from "@/lib/types";
 import { fmtUsd, DEXSCREENER_SLUGS } from "@/lib/utils";
 
 const PHASE_ORDER = ["ACCUMULATION", "DISTRIBUTION", "MARKUP", "MARKDOWN"] as const;
-const PHASE_LABELS: Record<string, { label: string; color: string; desc: string }> = {
-  ACCUMULATION: { label: "ACCUMULATION", color: "text-bullish", desc: "SM buying into price weakness" },
-  DISTRIBUTION: { label: "DISTRIBUTION", color: "text-bearish", desc: "SM exiting into price strength" },
-  MARKUP: { label: "MARKUP", color: "text-neutral", desc: "Trend confirmed" },
-  MARKDOWN: { label: "MARKDOWN", color: "text-warning", desc: "Capitulation" },
+const PHASE_LABELS: Record<string, { label: string; color: string; desc: string; bg: string }> = {
+  ACCUMULATION: { label: "ACCUMULATION", color: "text-bullish", desc: "SM buying into price weakness", bg: "bg-bullish" },
+  DISTRIBUTION: { label: "DISTRIBUTION", color: "text-bearish", desc: "SM exiting into price strength", bg: "bg-bearish" },
+  MARKUP: { label: "MARKUP", color: "text-neutral", desc: "Trend confirmed", bg: "bg-neutral" },
+  MARKDOWN: { label: "MARKDOWN", color: "text-warning", desc: "Capitulation", bg: "bg-warning" },
 };
+
+const SPARK_COLORS: Record<string, string> = {
+  ACCUMULATION: "#22c55e",
+  DISTRIBUTION: "#ef4444",
+  MARKUP: "#6366f1",
+  MARKDOWN: "#f59e0b",
+};
+
+function Sparkline({ data, phase }: { data: number[]; phase: string }) {
+  if (!data || data.length < 2) return <span className="text-muted text-xs">--</span>;
+  const w = 60, h = 20;
+  const max = Math.max(...data, 0.01);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+  const color = SPARK_COLORS[phase] || "#f97316";
+  return (
+    <svg width={w} height={h} className="inline-block">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function AlphaBar({ score }: { score: number }) {
   const color = score >= 70 ? "#f43f5e" : score >= 40 ? "#f97316" : "#6366f1";
@@ -32,9 +54,10 @@ function ConfPill({ confidence }: { confidence: string }) {
 
 interface TokenTableProps {
   results: Token[];
+  sparklines?: Record<string, number[]>;
 }
 
-export function TokenTable({ results }: TokenTableProps) {
+export function TokenTable({ results, sparklines }: TokenTableProps) {
   const [activePhase, setActivePhase] = useState<string | null>(null);
 
   const grouped: Record<string, Token[]> = {};
@@ -65,9 +88,10 @@ export function TokenTable({ results }: TokenTableProps) {
             <button
               key={p}
               onClick={() => setActivePhase(activePhase === p ? null : p)}
-              className={`px-3 py-1 rounded text-sm font-mono ${activePhase === p ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white"}`}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm font-mono ${activePhase === p ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white"}`}
             >
-              <span className={info.color}>{info.label}</span> ({count})
+              <span className={info.color}>{info.label}</span>
+              <span className={`${info.bg} text-bg text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center`}>{count}</span>
             </button>
           );
         })}
@@ -89,6 +113,7 @@ export function TokenTable({ results }: TokenTableProps) {
                   <tr className="text-muted text-xs border-b border-border">
                     <th className="text-left py-2 px-2">Token</th>
                     <th className="text-left py-2 px-2">Chain</th>
+                    <th className="text-center py-2 px-2">Trend</th>
                     <th className="text-right py-2 px-2">Price</th>
                     <th className="text-right py-2 px-2">Flow</th>
                     <th className="text-right py-2 px-2">Buy</th>
@@ -103,6 +128,7 @@ export function TokenTable({ results }: TokenTableProps) {
                     const flow = t.sm_net_flow !== 0 ? t.sm_net_flow : t.market_netflow;
                     const slug = DEXSCREENER_SLUGS[t.chain] || t.chain;
                     const dexUrl = `https://dexscreener.com/${slug}/${t.token_address}`;
+                    const sparkData = sparklines?.[t.token_address.toLowerCase()];
                     return (
                       <tr key={`${t.chain}-${t.token_address}-${i}`} className="border-b border-border/50 hover:bg-surface/50 cursor-pointer">
                         <td className="py-2 px-2">
@@ -112,6 +138,9 @@ export function TokenTable({ results }: TokenTableProps) {
                           {t.is_new && <span className="ml-1 text-xs bg-bearish text-white px-1 rounded">NEW</span>}
                         </td>
                         <td className="py-2 px-2 text-muted">{t.chain}</td>
+                        <td className="py-2 px-2 text-center">
+                          <Sparkline data={sparkData || []} phase={t.phase} />
+                        </td>
                         <td className={`py-2 px-2 text-right ${t.price_change > 0 ? "text-bullish" : "text-bearish"}`}>
                           {t.price_change > 0 ? "+" : ""}{(t.price_change * 100).toFixed(1)}%
                         </td>

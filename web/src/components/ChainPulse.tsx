@@ -59,6 +59,13 @@ export function ChainPulse({ results, scannedChains, activeChain, onChainClick }
           >
             <span className={`w-2 h-2 rounded-full ${dotColor}`} />
             {label}
+            {scanned && p && (p.acc > 0 || p.dis > 0) && (
+              <span className="text-xs ml-1">
+                <span className="text-bullish">{p.acc}</span>
+                /
+                <span className="text-bearish">{p.dis}</span>
+              </span>
+            )}
           </button>
         );
       })}
