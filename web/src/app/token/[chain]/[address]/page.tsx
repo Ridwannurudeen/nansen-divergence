@@ -586,7 +586,7 @@ function DivergenceHistory({ chain, address }: { chain: string; address: string 
           <YAxis tick={{ fill: "#737373", fontSize: 10, fontFamily: "monospace" }} stroke="#2a2a2a" domain={[0, 1]} />
           <Tooltip
             contentStyle={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 6, fontFamily: "monospace", fontSize: 12 }}
-            formatter={(v: number) => [v.toFixed(2), "Strength"]}
+            formatter={(v) => [Number(v).toFixed(2), "Strength"]}
           />
           <Area type="monotone" dataKey="strength" stroke="#f97316" fill="url(#divGrad)" strokeWidth={2} />
         </AreaChart>
