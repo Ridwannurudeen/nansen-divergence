@@ -99,13 +99,15 @@ class TestDualModeDispatch:
     def test_token_screener_uses_api_when_key_set(self):
         from nansen_divergence.nansen import token_screener
 
+        cli_fail = {"success": False}
         response = {"data": {"data": [{"symbol": "ETH"}], "pagination": {"is_last_page": True}}}
         with mock.patch.dict(os.environ, {"NANSEN_API_KEY": "key"}):
-            with mock.patch("nansen_divergence.nansen._api_post", return_value=response) as mock_api:
-                result = token_screener("ethereum", pages=1)
-                mock_api.assert_called()
-                assert len(result) == 1
-                assert result[0]["symbol"] == "ETH"
+            with mock.patch("nansen_divergence.nansen._run", return_value=cli_fail):
+                with mock.patch("nansen_divergence.nansen._api_post", return_value=response) as mock_api:
+                    result = token_screener("ethereum", pages=1)
+                    mock_api.assert_called()
+                    assert len(result) == 1
+                    assert result[0]["symbol"] == "ETH"
 
     def test_token_screener_uses_cli_when_no_key(self):
         from nansen_divergence.nansen import token_screener
@@ -120,11 +122,13 @@ class TestDualModeDispatch:
     def test_smart_money_holdings_api_mode(self):
         from nansen_divergence.nansen import smart_money_holdings
 
+        cli_fail = {"success": False}
         response = {"data": {"data": [{"token": "AAVE"}]}}
         with mock.patch.dict(os.environ, {"NANSEN_API_KEY": "key"}):
-            with mock.patch("nansen_divergence.nansen._api_post", return_value=response):
-                result = smart_money_holdings("ethereum")
-                assert len(result) == 1
+            with mock.patch("nansen_divergence.nansen._run", return_value=cli_fail):
+                with mock.patch("nansen_divergence.nansen._api_post", return_value=response):
+                    result = smart_money_holdings("ethereum")
+                    assert len(result) == 1
 
     def test_flow_intelligence_api_mode(self):
         from nansen_divergence.nansen import flow_intelligence

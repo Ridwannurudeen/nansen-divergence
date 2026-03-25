@@ -97,7 +97,7 @@ def _mcp_call(tool_name: str, arguments: dict) -> str:
         line = line.strip()
         if not line.startswith("data:"):
             continue
-        payload = line[len("data:"):].strip()
+        payload = line[len("data:") :].strip()
         if not payload:
             continue
         try:
@@ -193,7 +193,7 @@ def _parse_number(raw: str) -> float:
 # Markdown table parser
 # ---------------------------------------------------------------------------
 
-_SPROUT = "\U0001F331"  # Unicode for the seedling emoji
+_SPROUT = "\U0001f331"  # Unicode for the seedling emoji
 
 
 def _parse_markdown_table(md: str) -> list[dict]:
@@ -307,9 +307,7 @@ def mcp_token_screener(chain: str, page: int = 1) -> list[dict]:
         # Price change: "61.6%" -> 0.616 (already handled by _parse_number
         # when _convert_numeric_values runs, but handle the raw string
         # explicitly in case the column name varies).
-        price_change_raw = (
-            raw.get("Price Change", "") or raw.get("price_change", "") or raw.get("Price Change %", "")
-        )
+        price_change_raw = raw.get("Price Change", "") or raw.get("price_change", "") or raw.get("Price Change %", "")
         price_change = (
             _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
         )
@@ -369,6 +367,7 @@ def mcp_token_screener(chain: str, page: int = 1) -> list[dict]:
 # ---------------------------------------------------------------------------
 # SM-only token screener (shared helper)
 # ---------------------------------------------------------------------------
+
 
 def _mcp_sm_screener_rows(chain: str, pages: int = 2) -> list[dict]:
     """Call ``token_discovery_screener`` with ``onlySmartTradersAndFunds=true``.
@@ -447,21 +446,23 @@ def mcp_sm_token_screener(chain: str, pages: int = 2) -> list[dict]:
 
         resp_chain = raw.get("Chain", "") or raw.get("chain", "") or chain
 
-        results.append({
-            "token_address": token_addr,
-            "token_symbol": symbol,
-            "chain": resp_chain,
-            "price_usd": price,
-            "price_change": price_change,
-            "market_cap": mcap,
-            "market_netflow": netflow,
-            "volume_24h": volume,
-            "token_age_days": age,
-            "is_new": is_new,
-            "market_cap_usd": mcap,
-            "netflow": netflow,
-            "volume": volume,
-        })
+        results.append(
+            {
+                "token_address": token_addr,
+                "token_symbol": symbol,
+                "chain": resp_chain,
+                "price_usd": price,
+                "price_change": price_change,
+                "market_cap": mcap,
+                "market_netflow": netflow,
+                "volume_24h": volume,
+                "token_age_days": age,
+                "is_new": is_new,
+                "market_cap_usd": mcap,
+                "netflow": netflow,
+                "volume": volume,
+            }
+        )
 
     return results
 
@@ -490,21 +491,25 @@ def mcp_smart_money_dex_trades(chain: str) -> list[dict]:
         sell_vol = _parse_number(sell_raw) if isinstance(sell_raw, str) else float(sell_raw or 0)
 
         if buy_vol > 0:
-            trades.append({
-                "token_address": token_addr,
-                "side": "buy",
-                "amount_usd": buy_vol,
-                "wallet_address": "sm_aggregate",
-                "label": "Smart Traders & Funds",
-            })
+            trades.append(
+                {
+                    "token_address": token_addr,
+                    "side": "buy",
+                    "amount_usd": buy_vol,
+                    "wallet_address": "sm_aggregate",
+                    "label": "Smart Traders & Funds",
+                }
+            )
         if sell_vol > 0:
-            trades.append({
-                "token_address": token_addr,
-                "side": "sell",
-                "amount_usd": sell_vol,
-                "wallet_address": "sm_aggregate",
-                "label": "Smart Traders & Funds",
-            })
+            trades.append(
+                {
+                    "token_address": token_addr,
+                    "side": "sell",
+                    "amount_usd": sell_vol,
+                    "wallet_address": "sm_aggregate",
+                    "label": "Smart Traders & Funds",
+                }
+            )
 
     return trades
 
@@ -546,15 +551,17 @@ def mcp_smart_money_netflow(chain: str) -> list[dict]:
         # Estimate trader count from buy+sell volume ratio (1 per ~$50k activity)
         trader_est = max(1, int(vol / 50_000)) if vol > 0 else 0
 
-        results.append({
-            "token_address": token_addr,
-            "token_symbol": symbol,
-            "net_flow_24h_usd": netflow,
-            "net_flow_7d_usd": 0,  # SM screener only has 24h data
-            "trader_count": trader_est,
-            "token_sectors": [],
-            "market_cap_usd": mcap,
-        })
+        results.append(
+            {
+                "token_address": token_addr,
+                "token_symbol": symbol,
+                "net_flow_24h_usd": netflow,
+                "net_flow_7d_usd": 0,  # SM screener only has 24h data
+                "trader_count": trader_est,
+                "token_sectors": [],
+                "market_cap_usd": mcap,
+            }
+        )
 
     return results
 
