@@ -23,30 +23,39 @@ interface TreemapContent {
 
 function CustomContent(props: TreemapContent) {
   const { x, y, width, height, name, phase } = props;
-  if (width < 30 || height < 20) return null;
+  if (width < 20 || height < 16) return null;
+  const color = PHASE_COLORS[phase] || "#2a2a2a";
+  const textColor = PHASE_COLORS[phase] || "#d4d4d4";
+  const showSymbol = width > 36 && height > 22;
+  const showValue = width > 60 && height > 38;
   return (
-    <g>
+    <g role="img" aria-label={`${name}: ${fmtUsd(props.value)} (${phase})`}>
       <rect
         x={x}
         y={y}
         width={width}
         height={height}
-        fill={PHASE_COLORS[phase] || "#2a2a2a"}
+        fill={color}
         fillOpacity={0.25}
         stroke="#2a2a2a"
         strokeWidth={1}
       />
-      {width > 50 && height > 30 && (
-        <>
-          <text x={x + 6} y={y + 16} fill={PHASE_COLORS[phase] || "#d4d4d4"} fontSize={12} fontFamily="JetBrains Mono">
-            {name}
-          </text>
-          {width > 70 && height > 45 && (
-            <text x={x + 6} y={y + 30} fill="#737373" fontSize={10} fontFamily="JetBrains Mono">
-              {fmtUsd(props.value)}
-            </text>
-          )}
-        </>
+      {showSymbol && (
+        <text
+          x={x + 5}
+          y={y + 14}
+          fill={textColor}
+          fontSize={width < 50 ? 10 : 12}
+          fontFamily="JetBrains Mono"
+          clipPath={`inset(0 0 0 0)`}
+        >
+          {width < 50 ? name.slice(0, 4) : name}
+        </text>
+      )}
+      {showValue && (
+        <text x={x + 5} y={y + 28} fill="#737373" fontSize={10} fontFamily="JetBrains Mono">
+          {fmtUsd(props.value)}
+        </text>
       )}
     </g>
   );
@@ -70,12 +79,12 @@ export function HeatMap({ results }: HeatMapProps) {
   if (data.length === 0) return null;
 
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
+    <div className="bg-surface border border-border rounded-lg p-4" role="img" aria-label="Divergence heat map showing token market caps by phase">
       <h2 className="font-mono font-bold text-sm text-muted mb-3">DIVERGENCE HEAT MAP</h2>
-      <div className="flex gap-4 mb-3 text-xs font-mono">
+      <div className="flex flex-wrap gap-3 sm:gap-4 mb-3 text-xs font-mono">
         {Object.entries(PHASE_COLORS).map(([phase, color]) => (
           <div key={phase} className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color, opacity: 0.6 }} />
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color, opacity: 0.6 }} aria-hidden="true" />
             <span className="text-muted">{phase}</span>
           </div>
         ))}

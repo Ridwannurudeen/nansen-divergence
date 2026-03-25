@@ -36,12 +36,17 @@ export function SignalFeed({ results, streaks }: SignalFeedProps) {
   }
 
   return (
-    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-2">
+    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1 sm:pr-2" role="list" aria-label="Divergence signals">
       {signals.map((t, i) => {
         const streak = streaks?.[t.token_address.toLowerCase()];
         return (
-          <div key={`${t.chain}-${t.token_address}-${i}`} className={`border-l-4 ${PHASE_COLORS[t.phase]} bg-surface rounded-r px-3 py-2 animate-slide-up`} style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}>
-            <div className="flex items-center gap-2 text-sm font-mono">
+          <div
+            key={`${t.chain}-${t.token_address}-${i}`}
+            className={`border-l-4 ${PHASE_COLORS[t.phase]} bg-surface rounded-r px-2 sm:px-3 py-2 animate-slide-up`}
+            style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
+            role="listitem"
+          >
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-sm font-mono">
               <span className="font-bold text-white">{t.token_symbol}</span>
               <span className="text-muted text-xs">{t.chain.slice(0, 3).toUpperCase()}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded ${CONF_STYLES[t.confidence]}`}>
@@ -52,7 +57,7 @@ export function SignalFeed({ results, streaks }: SignalFeedProps) {
                   {streak.streak}x
                 </span>
               )}
-              <span className="text-accent font-bold">a{t.alpha_score}</span>
+              <span className="text-accent font-bold ml-auto sm:ml-0">a{t.alpha_score}</span>
               <span className={t.price_change > 0 ? "text-bullish" : "text-bearish"}>
                 {t.price_change > 0 ? "+" : ""}{(t.price_change * 100).toFixed(1)}%
               </span>

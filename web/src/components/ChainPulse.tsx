@@ -28,11 +28,11 @@ export function ChainPulse({ results, scannedChains, activeChain, onChainClick }
   }
 
   return (
-    <div className="flex flex-wrap gap-3 py-3">
+    <div className="flex gap-2 sm:gap-3 py-3 overflow-x-auto scrollbar-none" role="group" aria-label="Filter by blockchain">
       <button
         onClick={() => onChainClick(null)}
-        className={`px-3 py-1 rounded text-sm font-mono transition ${
-          activeChain === null ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white"
+        className={`px-3 py-1 rounded text-sm font-mono whitespace-nowrap transition-colors ${
+          activeChain === null ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white hover:bg-surface-hover"
         }`}
       >
         ALL
@@ -53,11 +53,12 @@ export function ChainPulse({ results, scannedChains, activeChain, onChainClick }
           <button
             key={id}
             onClick={() => onChainClick(isActive ? null : id)}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm font-mono transition ${
-              isActive ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm font-mono whitespace-nowrap transition-colors ${
+              isActive ? "bg-accent text-bg" : "bg-surface text-muted hover:text-white hover:bg-surface-hover"
             }`}
+            aria-pressed={isActive}
           >
-            <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+            <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
             {label}
             {scanned && p && (p.acc > 0 || p.dis > 0) && (
               <span className="text-xs ml-1">

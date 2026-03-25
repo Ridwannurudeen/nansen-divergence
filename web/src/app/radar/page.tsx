@@ -165,8 +165,57 @@ export default function RadarPage() {
         </ResponsiveContainer>
       </Card>
 
-      {/* Table */}
-      <Card className="overflow-x-auto">
+      {/* Mobile: card layout */}
+      <div className="md:hidden space-y-2">
+        {sorted.map((t, i) => {
+          const positive = t.sm_net_flow_24h >= 0;
+          const slug = DEXSCREENER_SLUGS[t.chain] || t.chain;
+          const dexUrl = `https://dexscreener.com/${slug}/${t.token_address}`;
+          return (
+            <Card
+              key={`${t.chain}-${t.token_address}-${i}`}
+              className={cn("border-l-4 !p-3", positive ? "border-l-bullish" : "border-l-bearish")}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Link href={`/token/${t.chain}/${t.token_address}`} className="text-white font-bold font-mono hover:text-accent transition-colors">
+                    {t.token_symbol}
+                  </Link>
+                  <span className="text-muted text-xs font-mono">{chainLabel(t.chain)}</span>
+                </div>
+                <a href={dexUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-secondary text-xs font-mono" aria-label={`View ${t.token_symbol} on DexScreener`}>
+                  Chart
+                </a>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs font-mono mb-2">
+                <div>
+                  <div className="text-muted">Flow 24h</div>
+                  <div className={cn("font-bold", positive ? "text-bullish" : "text-bearish")}>{fmtUsd(t.sm_net_flow_24h)}</div>
+                </div>
+                <div>
+                  <div className="text-muted">Flow 7d</div>
+                  <div className={t.sm_net_flow_7d >= 0 ? "text-bullish" : "text-bearish"}>{fmtUsd(t.sm_net_flow_7d)}</div>
+                </div>
+                <div>
+                  <div className="text-muted">Traders</div>
+                  <div className="text-white">{t.sm_trader_count}</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs font-mono">
+                <div className="flex flex-wrap gap-1">
+                  {t.sm_sectors.map((s) => (
+                    <Badge key={s} className="text-[10px] px-1.5 py-0">{s}</Badge>
+                  ))}
+                </div>
+                <span className="text-muted">{t.market_cap > 0 ? fmtUsd(t.market_cap) : "--"}</span>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table layout */}
+      <Card className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm font-mono">
           <thead>
             <tr className="text-muted text-xs border-b border-border">
@@ -197,54 +246,28 @@ export default function RadarPage() {
                   )}
                 >
                   <td className="py-2.5 px-3">
-                    <Link
-                      href={`/token/${t.chain}/${t.token_address}`}
-                      className="text-white font-bold hover:text-accent"
-                    >
+                    <Link href={`/token/${t.chain}/${t.token_address}`} className="text-white font-bold hover:text-accent transition-colors">
                       {t.token_symbol}
                     </Link>
                   </td>
-                  <td className="py-2.5 px-3 text-muted">
-                    {chainLabel(t.chain)}
-                  </td>
-                  <td
-                    className={cn(
-                      "py-2.5 px-3 text-right font-bold",
-                      positive ? "text-bullish" : "text-bearish",
-                    )}
-                  >
+                  <td className="py-2.5 px-3 text-muted">{chainLabel(t.chain)}</td>
+                  <td className={cn("py-2.5 px-3 text-right font-bold", positive ? "text-bullish" : "text-bearish")}>
                     {fmtUsd(t.sm_net_flow_24h)}
                   </td>
-                  <td
-                    className={cn(
-                      "py-2.5 px-3 text-right",
-                      t.sm_net_flow_7d >= 0 ? "text-bullish" : "text-bearish",
-                    )}
-                  >
+                  <td className={cn("py-2.5 px-3 text-right", t.sm_net_flow_7d >= 0 ? "text-bullish" : "text-bearish")}>
                     {fmtUsd(t.sm_net_flow_7d)}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-white">
-                    {t.sm_trader_count}
-                  </td>
+                  <td className="py-2.5 px-3 text-right text-white">{t.sm_trader_count}</td>
                   <td className="py-2.5 px-3">
                     <div className="flex flex-wrap gap-1">
                       {t.sm_sectors.map((s) => (
-                        <Badge key={s} className="text-[10px] px-1.5 py-0">
-                          {s}
-                        </Badge>
+                        <Badge key={s} className="text-[10px] px-1.5 py-0">{s}</Badge>
                       ))}
                     </div>
                   </td>
-                  <td className="py-2.5 px-3 text-right text-muted">
-                    {t.market_cap > 0 ? fmtUsd(t.market_cap) : "--"}
-                  </td>
+                  <td className="py-2.5 px-3 text-right text-muted">{t.market_cap > 0 ? fmtUsd(t.market_cap) : "--"}</td>
                   <td className="py-2.5 px-3 text-center">
-                    <a
-                      href={dexUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent hover:text-secondary text-xs"
-                    >
+                    <a href={dexUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-secondary text-xs transition-colors" aria-label={`View ${t.token_symbol} on DexScreener`}>
                       View
                     </a>
                   </td>

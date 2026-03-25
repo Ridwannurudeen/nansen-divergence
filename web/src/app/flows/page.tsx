@@ -227,64 +227,101 @@ export default function FlowsPage() {
             <h2 className="font-mono font-bold text-sm text-muted mb-3">
               SECTOR ROTATION
             </h2>
-            <div className="bg-surface border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm font-mono">
-                  <thead>
-                    <tr className="border-b border-border text-muted text-xs">
-                      <th className="text-left p-3">Sector</th>
-                      <th className="text-right p-3">Tokens</th>
-                      <th className="text-right p-3">Net Flow</th>
-                      <th className="text-left p-3">Top Tokens</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {buildSectorRows(data.sectors).map((row) => (
-                      <tr
-                        key={row.name}
-                        className="border-b border-border/50 hover:bg-surface-hover transition-colors"
-                      >
-                        <td className="p-3 text-white font-bold whitespace-nowrap">
-                          {row.name}
-                        </td>
-                        <td className="p-3 text-right text-muted">
-                          {row.token_count}
-                        </td>
-                        <td
-                          className={cn(
-                            "p-3 text-right font-bold",
-                            row.net_flow > 0 ? "text-bullish" : row.net_flow < 0 ? "text-bearish" : "text-muted",
-                          )}
-                        >
-                          {fmtUsd(row.net_flow)}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex flex-wrap gap-1">
-                            {row.tokens.slice(0, 6).map((t) => (
-                              <Badge key={t} className="text-[10px]">
-                                {t}
-                              </Badge>
-                            ))}
-                            {row.tokens.length > 6 && (
-                              <span className="text-muted text-xs">
-                                +{row.tokens.length - 6}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {buildSectorRows(data.sectors).length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="p-6 text-center text-muted">
-                          No sector data available yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+
+            {buildSectorRows(data.sectors).length === 0 ? (
+              <div className="bg-surface border border-border rounded-lg p-6 text-center text-muted font-mono text-sm">
+                No sector data available yet.
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Mobile: card layout */}
+                <div className="md:hidden space-y-2">
+                  {buildSectorRows(data.sectors).map((row) => (
+                    <div
+                      key={row.name}
+                      className={cn(
+                        "bg-surface border border-border rounded-lg p-3 border-l-4",
+                        row.net_flow > 0 ? "border-l-bullish" : row.net_flow < 0 ? "border-l-bearish" : "border-l-muted",
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white font-bold font-mono text-sm">{row.name}</span>
+                        <span className={cn(
+                          "font-mono font-bold text-sm",
+                          row.net_flow > 0 ? "text-bullish" : row.net_flow < 0 ? "text-bearish" : "text-muted",
+                        )}>
+                          {fmtUsd(row.net_flow)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mb-2 text-xs font-mono text-muted">
+                        <span>{row.token_count} token{row.token_count !== 1 && "s"}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {row.tokens.slice(0, 6).map((t) => (
+                          <Badge key={t} className="text-[10px]">{t}</Badge>
+                        ))}
+                        {row.tokens.length > 6 && (
+                          <span className="text-muted text-xs">+{row.tokens.length - 6}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: table layout */}
+                <div className="hidden md:block bg-surface border border-border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm font-mono">
+                      <thead>
+                        <tr className="border-b border-border text-muted text-xs">
+                          <th className="text-left p-3">Sector</th>
+                          <th className="text-right p-3">Tokens</th>
+                          <th className="text-right p-3">Net Flow</th>
+                          <th className="text-left p-3">Top Tokens</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {buildSectorRows(data.sectors).map((row) => (
+                          <tr
+                            key={row.name}
+                            className="border-b border-border/50 hover:bg-surface-hover transition-colors"
+                          >
+                            <td className="p-3 text-white font-bold whitespace-nowrap">
+                              {row.name}
+                            </td>
+                            <td className="p-3 text-right text-muted">
+                              {row.token_count}
+                            </td>
+                            <td
+                              className={cn(
+                                "p-3 text-right font-bold",
+                                row.net_flow > 0 ? "text-bullish" : row.net_flow < 0 ? "text-bearish" : "text-muted",
+                              )}
+                            >
+                              {fmtUsd(row.net_flow)}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1">
+                                {row.tokens.slice(0, 6).map((t) => (
+                                  <Badge key={t} className="text-[10px]">
+                                    {t}
+                                  </Badge>
+                                ))}
+                                {row.tokens.length > 6 && (
+                                  <span className="text-muted text-xs">
+                                    +{row.tokens.length - 6}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         </>
       )}

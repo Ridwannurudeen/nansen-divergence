@@ -155,7 +155,7 @@ export default function PerformancePage() {
         <h1 className="text-2xl font-mono font-bold text-white mb-6">
           SIGNAL PERFORMANCE
         </h1>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-6">
           {Array.from({ length: 5 }).map((_, i) => (
             <CardSkeleton key={i} />
           ))}
@@ -208,7 +208,7 @@ export default function PerformancePage() {
       </h1>
 
       {/* ---- Stats row ---- */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-6">
         <Card glow="green">
           <CardHeader>Win Rate</CardHeader>
           <CardValue className="text-bullish glow-green">
@@ -341,78 +341,106 @@ export default function PerformancePage() {
         </Card>
       </div>
 
-      {/* ---- Outcomes table ---- */}
-      <Card className="overflow-x-auto">
+      {/* ---- Outcomes ---- */}
+      <Card>
         <h2 className="text-xs font-mono text-muted uppercase tracking-wider mb-3">
           SIGNAL OUTCOMES ({sortedOutcomes.length})
         </h2>
-        <table className="w-full text-sm font-mono">
-          <thead>
-            <tr className="text-muted text-xs border-b border-border">
-              <th className="text-left py-2 px-3">Symbol</th>
-              <th className="text-left py-2 px-3">Chain</th>
-              <th className="text-left py-2 px-3">Phase</th>
-              <th className="text-center py-2 px-3">Confidence</th>
-              <th className="text-right py-2 px-3">Signal Price</th>
-              <th className="text-right py-2 px-3">Current Price</th>
-              <th className="text-right py-2 px-3">Return %</th>
-              <th className="text-right py-2 px-3">Days Ago</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedOutcomes.map((o, i) => {
-              const returnPct = o.price_change_pct * 100;
-              const positive = o.price_change_pct >= 0;
 
-              return (
-                <tr
-                  key={`${o.chain}-${o.token_symbol}-${i}`}
-                  className={cn(
-                    "border-b border-border/50 hover:bg-surface-hover transition-colors",
-                    positive
-                      ? "border-l-2 border-l-bullish"
-                      : "border-l-2 border-l-bearish",
-                  )}
-                >
-                  <td className="py-2.5 px-3 text-white font-bold">
-                    {o.token_symbol}
-                  </td>
-                  <td className="py-2.5 px-3 text-muted">
-                    {chainLabel(o.chain)}
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <Badge variant="phase" value={o.phase}>
-                      {o.phase}
-                    </Badge>
-                  </td>
-                  <td className="py-2.5 px-3 text-center">
-                    <Badge variant="confidence" value={o.confidence}>
-                      {o.confidence}
-                    </Badge>
-                  </td>
-                  <td className="py-2.5 px-3 text-right text-muted">
-                    {fmtPrice(o.signal_price)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right text-white">
-                    {fmtPrice(o.current_price)}
-                  </td>
-                  <td
+        {/* Mobile: card layout */}
+        <div className="md:hidden space-y-2">
+          {sortedOutcomes.map((o, i) => {
+            const returnPct = o.price_change_pct * 100;
+            const positive = o.price_change_pct >= 0;
+            return (
+              <div
+                key={`${o.chain}-${o.token_symbol}-${i}`}
+                className={cn(
+                  "bg-bg/50 border border-border/50 rounded-lg p-3 border-l-4",
+                  positive ? "border-l-bullish" : "border-l-bearish",
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold font-mono">{o.token_symbol}</span>
+                    <span className="text-muted text-xs font-mono">{chainLabel(o.chain)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="phase" value={o.phase}>{o.phase}</Badge>
+                    <Badge variant="confidence" value={o.confidence}>{o.confidence}</Badge>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div>
+                    <div className="text-muted">Signal</div>
+                    <div className="text-white">{fmtPrice(o.signal_price)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">Current</div>
+                    <div className="text-white">{fmtPrice(o.current_price)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">Return</div>
+                    <div className={cn("font-bold", positive ? "text-bullish" : "text-bearish")}>
+                      {positive ? "+" : ""}{returnPct.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: table layout */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm font-mono">
+            <thead>
+              <tr className="text-muted text-xs border-b border-border">
+                <th className="text-left py-2 px-3">Symbol</th>
+                <th className="text-left py-2 px-3">Chain</th>
+                <th className="text-left py-2 px-3">Phase</th>
+                <th className="text-center py-2 px-3">Confidence</th>
+                <th className="text-right py-2 px-3">Signal Price</th>
+                <th className="text-right py-2 px-3">Current Price</th>
+                <th className="text-right py-2 px-3">Return %</th>
+                <th className="text-right py-2 px-3">Days Ago</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedOutcomes.map((o, i) => {
+                const returnPct = o.price_change_pct * 100;
+                const positive = o.price_change_pct >= 0;
+
+                return (
+                  <tr
+                    key={`${o.chain}-${o.token_symbol}-${i}`}
                     className={cn(
-                      "py-2.5 px-3 text-right font-bold",
-                      positive ? "text-bullish" : "text-bearish",
+                      "border-b border-border/50 hover:bg-surface-hover transition-colors",
+                      positive
+                        ? "border-l-2 border-l-bullish"
+                        : "border-l-2 border-l-bearish",
                     )}
                   >
-                    {positive ? "+" : ""}
-                    {returnPct.toFixed(1)}%
-                  </td>
-                  <td className="py-2.5 px-3 text-right text-muted">
-                    {o.days_ago}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <td className="py-2.5 px-3 text-white font-bold">{o.token_symbol}</td>
+                    <td className="py-2.5 px-3 text-muted">{chainLabel(o.chain)}</td>
+                    <td className="py-2.5 px-3">
+                      <Badge variant="phase" value={o.phase}>{o.phase}</Badge>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <Badge variant="confidence" value={o.confidence}>{o.confidence}</Badge>
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-muted">{fmtPrice(o.signal_price)}</td>
+                    <td className="py-2.5 px-3 text-right text-white">{fmtPrice(o.current_price)}</td>
+                    <td className={cn("py-2.5 px-3 text-right font-bold", positive ? "text-bullish" : "text-bearish")}>
+                      {positive ? "+" : ""}{returnPct.toFixed(1)}%
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-muted">{o.days_ago}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </main>
   );

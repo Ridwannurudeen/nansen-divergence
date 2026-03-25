@@ -24,7 +24,7 @@ export function Navigation() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-bg/90 backdrop-blur-sm border-b border-border">
+    <nav className="sticky top-0 z-50 bg-bg/90 backdrop-blur-sm border-b border-border" role="navigation" aria-label="Main navigation">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-12">
           <Link href="/" className="flex items-center gap-2">
@@ -42,10 +42,10 @@ export function Navigation() {
                   "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-mono transition-colors",
                   isActive(href)
                     ? "bg-accent/10 text-accent"
-                    : "text-muted hover:text-white hover:bg-surface",
+                    : "text-muted hover:text-white hover:bg-surface-hover",
                 )}
               >
-                <Icon size={14} />
+                <Icon size={14} aria-hidden="true" />
                 {label}
               </Link>
             ))}
@@ -53,33 +53,36 @@ export function Navigation() {
 
           {/* Live indicator */}
           <div className="hidden md:flex items-center gap-2 text-xs font-mono text-muted">
-            <span className="w-2 h-2 rounded-full bg-bullish animate-live" />
+            <span className="w-2 h-2 rounded-full bg-bullish animate-live" aria-hidden="true" />
             LIVE
           </div>
 
           {/* Mobile hamburger */}
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden text-muted hover:text-white p-1"
+            className="md:hidden text-muted hover:text-white p-1 transition-colors"
+            aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={open}
           >
-            {open ? <X size={20} /> : <Menu size={20} />}
+            {open ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
           </button>
         </div>
 
         {/* Mobile menu */}
         {open && (
-          <div className="md:hidden border-t border-border py-2 animate-fade-in">
+          <div className="md:hidden border-t border-border py-2 animate-fade-in" role="menu">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded text-sm font-mono",
-                  isActive(href) ? "text-accent bg-accent/10" : "text-muted hover:text-white",
+                  "flex items-center gap-2 px-3 py-2 rounded text-sm font-mono transition-colors",
+                  isActive(href) ? "text-accent bg-accent/10" : "text-muted hover:text-white hover:bg-surface-hover",
                 )}
+                role="menuitem"
               >
-                <Icon size={14} />
+                <Icon size={14} aria-hidden="true" />
                 {label}
               </Link>
             ))}
