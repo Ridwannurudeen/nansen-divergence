@@ -8,7 +8,6 @@ be used as a drop-in replacement for REST / CLI data sources.
 import json
 import os
 import re
-import sys
 import urllib.error
 import urllib.request
 
@@ -263,7 +262,8 @@ def _convert_numeric_values(row: dict) -> dict:
             out[k] = stripped
             continue
         # Keep obvious text (contains letters that aren't suffixes/nan)
-        if stripped and not re.match(r"^[+\-$.,\d%kKmMbBtTnNaA/ ]+$", stripped) and stripped.lower() not in ("nan", "n/a"):
+        is_text = not re.match(r"^[+\-$.,\d%kKmMbBtTnNaA/ ]+$", stripped)
+        if stripped and is_text and stripped.lower() not in ("nan", "n/a"):
             out[k] = stripped
             continue
         # Try numeric conversion
@@ -297,7 +297,7 @@ def mcp_token_screener(chain: str, page: int = 1) -> list[dict]:
     results: list[dict] = []
 
     for raw in raw_rows:
-        row = _convert_numeric_values(raw)
+        _convert_numeric_values(raw)
 
         # Symbol: strip seedling emoji prefix that marks new tokens
         raw_symbol = raw.get("Symbol", "") or raw.get("symbol", "")
@@ -307,8 +307,12 @@ def mcp_token_screener(chain: str, page: int = 1) -> list[dict]:
         # Price change: "61.6%" -> 0.616 (already handled by _parse_number
         # when _convert_numeric_values runs, but handle the raw string
         # explicitly in case the column name varies).
-        price_change_raw = raw.get("Price Change", "") or raw.get("price_change", "") or raw.get("Price Change %", "")
-        price_change = _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
+        price_change_raw = (
+            raw.get("Price Change", "") or raw.get("price_change", "") or raw.get("Price Change %", "")
+        )
+        price_change = (
+            _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
+        )
 
         # Market cap
         mcap_raw = raw.get("Market Cap", "") or raw.get("market_cap", "")
@@ -419,7 +423,9 @@ def mcp_sm_token_screener(chain: str, pages: int = 2) -> list[dict]:
         symbol = raw_symbol.replace(_SPROUT, "").strip()
 
         price_change_raw = raw.get("Price Change", "") or raw.get("price_change", "")
-        price_change = _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
+        price_change = (
+            _parse_number(price_change_raw) if isinstance(price_change_raw, str) else float(price_change_raw or 0)
+        )
 
         mcap_raw = raw.get("Market Cap", "") or raw.get("market_cap", "")
         mcap = _parse_number(mcap_raw) if isinstance(mcap_raw, str) else float(mcap_raw or 0)
