@@ -51,15 +51,20 @@ def _run_scan():
         for r in flat:
             r["alpha_score"] = alpha_score(r.get("divergence_strength", 0))
 
-        save_cached_scan({
-            "results": flat,
-            "radar": radar,
-            "summary": summary,
-            "chains": chains,
-            "validations": validations,
-            "backtest": bstats,
-        })
-        logger.info(f"Scan complete: {summary.get('total_tokens', 0)} tokens")
+        # Only save if we got actual data — don't overwrite good cached data
+        # with empty results (e.g. when API credits are exhausted)
+        if flat:
+            save_cached_scan({
+                "results": flat,
+                "radar": radar,
+                "summary": summary,
+                "chains": chains,
+                "validations": validations,
+                "backtest": bstats,
+            })
+            logger.info(f"Scan complete: {summary.get('total_tokens', 0)} tokens")
+        else:
+            logger.warning("Scan returned 0 tokens — keeping existing cached data")
     except Exception as e:
         logger.error(f"Scan failed: {e}")
 
