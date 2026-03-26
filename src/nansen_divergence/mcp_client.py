@@ -11,7 +11,7 @@ import re
 import urllib.error
 import urllib.request
 
-_MCP_URL = "https://mcp.nansen.ai/ra/mcp/"
+_MCP_URL = "https://mcp.nansen.ai/ra/mcp"
 
 
 class _PostRedirectHandler(urllib.request.HTTPRedirectHandler):

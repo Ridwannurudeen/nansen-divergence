@@ -11,15 +11,35 @@ DEFAULT_CHAINS = ["ethereum", "bnb", "solana", "base", "arbitrum"]
 SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "30"))
 
 
+def _maybe_seed_demo(chains: list[str]):
+    """Seed cache with demo data if no cached scan exists yet."""
+    from api.cache import get_latest_scan, save_cached_scan
+    existing = get_latest_scan()
+    if existing and existing.get("results"):
+        logger.info("Existing cached data preserved — demo data not needed")
+        return
+    from api.demo import generate_demo_scan
+    demo = generate_demo_scan(chains)
+    save_cached_scan(demo)
+    logger.info(f"Seeded demo data: {len(demo['results'])} tokens across {len(chains)} chains")
+
+
 def _run_scan():
+    from api.cache import save_cached_scan
     from nansen_divergence.divergence import alpha_score
     from nansen_divergence.history import (
-        backtest_stats, detect_new_tokens, init_db, save_scan, validate_signals,
+        backtest_stats,
+        detect_new_tokens,
+        init_db,
+        save_scan,
+        validate_signals,
     )
     from nansen_divergence.scanner import (
-        flatten_and_rank, flatten_radar, scan_multi_chain, summarize,
+        flatten_and_rank,
+        flatten_radar,
+        scan_multi_chain,
+        summarize,
     )
-    from api.cache import save_cached_scan
 
     chains = os.getenv("SCAN_CHAINS", ",".join(DEFAULT_CHAINS)).split(",")
     limit = int(os.getenv("SCAN_LIMIT", "20"))
@@ -64,9 +84,12 @@ def _run_scan():
             })
             logger.info(f"Scan complete: {summary.get('total_tokens', 0)} tokens")
         else:
-            logger.warning("Scan returned 0 tokens — keeping existing cached data")
+            logger.warning("Scan returned 0 tokens (API credits likely exhausted)")
+            _maybe_seed_demo(chains)
     except Exception as e:
         logger.error(f"Scan failed: {e}")
+        chains = os.getenv("SCAN_CHAINS", ",".join(DEFAULT_CHAINS)).split(",")
+        _maybe_seed_demo(chains)
 
 
 def start_scheduler():
