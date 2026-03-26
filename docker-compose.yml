@@ -9,6 +9,7 @@ services:
     env_file: .env
     volumes:
       - /root/.nansen:/root/.nansen:ro
+      - nansen-cache:/root/.nansen-divergence
     restart: unless-stopped
 
   web:
@@ -23,3 +24,6 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+
+volumes:
+  nansen-cache:
