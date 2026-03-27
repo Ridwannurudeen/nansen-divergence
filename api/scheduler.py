@@ -112,8 +112,22 @@ def _run_scan():
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
+
+    # Seed demo data on startup if cache is empty (no scan triggered)
+    chains = os.getenv("SCAN_CHAINS", ",".join(DEFAULT_CHAINS)).split(",")
+    _maybe_seed_demo(chains)
+
+    # Skip scheduling if interval is 0 (disabled)
+    if SCAN_INTERVAL_MINUTES <= 0:
+        logger.info("Scheduler disabled (SCAN_INTERVAL_MINUTES=0)")
+        return scheduler
+
     scheduler.add_job(_run_scan, "interval", minutes=SCAN_INTERVAL_MINUTES, id="auto_scan")
-    scheduler.add_job(_run_scan, "date", id="initial_scan")
+
+    # Only run initial scan if SCAN_ON_STARTUP=1
+    if os.getenv("SCAN_ON_STARTUP", "0") == "1":
+        scheduler.add_job(_run_scan, "date", id="initial_scan")
+
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
     logger.info(f"Scheduler started: scanning every {SCAN_INTERVAL_MINUTES}min{budget_msg}")
