@@ -149,8 +149,9 @@ def scan_chain(
     console.print(f"  [dim]Fetching token screener for [bold]{chain}[/bold]...[/dim]")
     tokens = nansen.token_screener(chain, timeframe=timeframe, pages=pages)
 
+    dex_pages = int(__import__("os").getenv("SCAN_DEX_PAGES", "3"))
     console.print(f"  [dim]Fetching SM dex-trades for [bold]{chain}[/bold]...[/dim]")
-    dex_trades = nansen.smart_money_dex_trades(chain, pages=3)
+    dex_trades = nansen.smart_money_dex_trades(chain, pages=dex_pages)
 
     console.print(f"  [dim]Fetching SM holdings for [bold]{chain}[/bold]...[/dim]")
     holdings = nansen.smart_money_holdings(chain)

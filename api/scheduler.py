@@ -1,4 +1,4 @@
-"""Background scheduler — runs scans at fixed intervals and caches results."""
+"""Background scheduler — runs scans at fixed intervals with credit budget management."""
 
 import logging
 import os
@@ -9,6 +9,11 @@ logger = logging.getLogger("nansen.scheduler")
 
 DEFAULT_CHAINS = ["ethereum", "bnb", "solana", "base", "arbitrum"]
 SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "30"))
+
+# Credit budget management
+CREDIT_BUDGET = int(os.getenv("CREDIT_BUDGET", "0"))  # 0 = unlimited (no tracking)
+CREDITS_PER_SCAN = int(os.getenv("CREDITS_PER_SCAN", "24"))  # estimated cost per scan
+_scans_completed = 0
 
 
 def _maybe_seed_demo(chains: list[str]):
@@ -25,6 +30,20 @@ def _maybe_seed_demo(chains: list[str]):
 
 
 def _run_scan():
+    global _scans_completed
+
+    # Credit budget check
+    if CREDIT_BUDGET > 0:
+        used = _scans_completed * CREDITS_PER_SCAN
+        remaining = CREDIT_BUDGET - used
+        if remaining < CREDITS_PER_SCAN:
+            logger.warning(
+                f"Credit budget exhausted: {_scans_completed} scans done, "
+                f"~{remaining}/{CREDIT_BUDGET} credits remaining — skipping scan"
+            )
+            return
+        logger.info(f"Credit budget: ~{remaining}/{CREDIT_BUDGET} credits remaining (scan #{_scans_completed + 1})")
+
     from api.cache import save_cached_scan
     from nansen_divergence.divergence import alpha_score
     from nansen_divergence.history import (
@@ -71,8 +90,6 @@ def _run_scan():
         for r in flat:
             r["alpha_score"] = alpha_score(r.get("divergence_strength", 0))
 
-        # Only save if we got actual data — don't overwrite good cached data
-        # with empty results (e.g. when API credits are exhausted)
         if flat:
             save_cached_scan({
                 "results": flat,
@@ -82,7 +99,8 @@ def _run_scan():
                 "validations": validations,
                 "backtest": bstats,
             })
-            logger.info(f"Scan complete: {summary.get('total_tokens', 0)} tokens")
+            _scans_completed += 1
+            logger.info(f"Scan complete: {summary.get('total_tokens', 0)} tokens (scan #{_scans_completed})")
         else:
             logger.warning("Scan returned 0 tokens (API credits likely exhausted)")
             _maybe_seed_demo(chains)
@@ -97,5 +115,6 @@ def start_scheduler():
     scheduler.add_job(_run_scan, "interval", minutes=SCAN_INTERVAL_MINUTES, id="auto_scan")
     scheduler.add_job(_run_scan, "date", id="initial_scan")
     scheduler.start()
-    logger.info(f"Scheduler started: scanning every {SCAN_INTERVAL_MINUTES} minutes")
+    budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
+    logger.info(f"Scheduler started: scanning every {SCAN_INTERVAL_MINUTES}min{budget_msg}")
     return scheduler
