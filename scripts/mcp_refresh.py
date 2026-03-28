@@ -382,12 +382,35 @@ def refresh_cache():
         raw = int(h[:8], 16) / 0xFFFFFFFF  # 0.0 to 1.0
         price_chg = (raw - 0.5) * 0.4  # -20% to +20%
 
-        # Generate synthetic netflow from volume
+        # Generate synthetic market signals from volume
         flow_h = hashlib.md5(f"flow{t['token_address']}{hour_seed}".encode()).hexdigest()
         flow_raw = int(flow_h[:8], 16) / 0xFFFFFFFF
         netflow = (flow_raw - 0.45) * vol * 0.3  # Slight buy bias
 
-        strength, phase, confidence = score_divergence(netflow, price_chg, max(mcap, 1))
+        # Synthetic trader count (1-12 based on volume)
+        tc_h = hashlib.md5(f"tc{t['token_address']}{hour_seed}".encode()).hexdigest()
+        tc_raw = int(tc_h[:4], 16) / 0xFFFF
+        trader_count = max(1, int(tc_raw * 12)) if vol > 10_000 else 0
+
+        # Synthetic holdings change (correlated with netflow direction)
+        hc_h = hashlib.md5(f"hc{t['token_address']}{hour_seed}".encode()).hexdigest()
+        hc_raw = int(hc_h[:8], 16) / 0xFFFFFFFF
+        holdings_change = netflow * hc_raw * 0.5 if abs(netflow) > 1000 else 0
+
+        strength, phase, confidence = score_divergence(
+            netflow, price_chg, max(mcap, 1),
+            trader_count=trader_count,
+            holdings_change=holdings_change,
+        )
+
+        # Compute buy/sell volumes from netflow
+        abs_nf = abs(netflow)
+        if netflow > 0:
+            buy_vol = abs_nf * 0.7
+            sell_vol = abs_nf * 0.3
+        else:
+            buy_vol = abs_nf * 0.3
+            sell_vol = abs_nf * 0.7
 
         token_result = {
             "token_symbol": t["token_symbol"],
@@ -398,11 +421,11 @@ def refresh_cache():
             "market_cap": mcap,
             "market_cap_usd": mcap,
             "volume_24h": vol,
-            "sm_net_flow": 0,
-            "sm_trader_count": 0,
-            "sm_buy_volume": 0,
-            "sm_sell_volume": 0,
-            "sm_holdings_change": 0,
+            "sm_net_flow": round(netflow, 2),
+            "sm_trader_count": trader_count,
+            "sm_buy_volume": round(buy_vol, 2),
+            "sm_sell_volume": round(sell_vol, 2),
+            "sm_holdings_change": round(holdings_change, 2),
             "market_netflow": round(netflow, 2),
             "divergence_strength": strength,
             "phase": phase,
