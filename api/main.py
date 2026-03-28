@@ -95,7 +95,7 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
 
     # Save to history DB
     init_db()
-    save_scan(flat, chain_list)
+    save_scan(flat, chain_list, "24h")
     validations = validate_signals(flat, lookback_days=30)
     bstats = backtest_stats(validations)
 
