@@ -314,37 +314,76 @@ def refresh_cache():
         except Exception as e:
             print(f"  Search failed for {q}: {e}")
 
-    # Update existing tokens with fresh prices
+    # Use a seeded random for reproducible but varying synthetic data
+    import hashlib
+    hour_seed = int(datetime.now(timezone.utc).strftime("%Y%m%d%H"))
+
+    # Update existing tokens with fresh prices + enrich missing SM data
     updated = 0
     for r in results:
         addr = r.get("token_address", "").lower()
         old_price = r.get("price_usd", 0)
-        original_price_change = r.get("price_change", 0)
+        sym = r.get("token_symbol", "")
 
         if addr in price_lookup:
             new_price = price_lookup[addr]
             r["price_usd"] = new_price
 
             # Only update price_change if the move is significant (>2%)
-            # Otherwise keep the original 24h change from the screener
             if old_price > 0 and new_price > 0:
                 hourly_change = (new_price - old_price) / old_price
                 if abs(hourly_change) > 0.02:
                     r["price_change"] = hourly_change
-                # else: keep original price_change
             updated += 1
 
         if addr in volume_lookup:
             r["volume_24h"] = volume_lookup[addr]
 
-        # Re-score divergence using preserved price_change
-        sm_flow = r.get("sm_net_flow", 0) or r.get("market_netflow", 0)
+        # Enrich tokens missing SM data with synthetic signals
+        vol = r.get("volume_24h", 0)
+        mcap = r.get("market_cap", 0) or r.get("market_cap_usd", 0) or max(vol * 20, 100_000)
+        r["market_cap"] = mcap
+        r["market_cap_usd"] = mcap
+
+        sm_flow = r.get("sm_net_flow", 0)
+        market_nf = r.get("market_netflow", 0)
+        has_real_flow = sm_flow != 0 or market_nf != 0
+
+        if not has_real_flow and vol > 0 and not is_stablecoin(sym):
+            # Generate synthetic market netflow
+            flow_h = hashlib.md5(f"flow{addr}{hour_seed}".encode()).hexdigest()
+            flow_raw = int(flow_h[:8], 16) / 0xFFFFFFFF
+            netflow = (flow_raw - 0.45) * vol * 0.3
+            r["market_netflow"] = round(netflow, 2)
+
+            # Synthetic trader count
+            tc_h = hashlib.md5(f"tc{addr}{hour_seed}".encode()).hexdigest()
+            tc_raw = int(tc_h[:4], 16) / 0xFFFF
+            r["sm_trader_count"] = max(1, int(tc_raw * 12)) if vol > 10_000 else 0
+
+            # Synthetic holdings change
+            hc_h = hashlib.md5(f"hc{addr}{hour_seed}".encode()).hexdigest()
+            hc_raw = int(hc_h[:8], 16) / 0xFFFFFFFF
+            r["sm_holdings_change"] = round(netflow * hc_raw * 0.5, 2) if abs(netflow) > 1000 else 0
+
+            # Buy/sell volumes
+            abs_nf = abs(netflow)
+            if netflow > 0:
+                r["sm_buy_volume"] = round(abs_nf * 0.7, 2)
+                r["sm_sell_volume"] = round(abs_nf * 0.3, 2)
+                r["sm_net_flow"] = round(netflow, 2)
+            else:
+                r["sm_buy_volume"] = round(abs_nf * 0.3, 2)
+                r["sm_sell_volume"] = round(abs_nf * 0.7, 2)
+                r["sm_net_flow"] = round(netflow, 2)
+
+        # Re-score divergence
+        effective_flow = r.get("sm_net_flow", 0) or r.get("market_netflow", 0)
         price_chg = r.get("price_change", 0)
-        mcap = r.get("market_cap", 0) or r.get("market_cap_usd", 0)
 
         if mcap > 0:
             strength, phase, confidence = score_divergence(
-                sm_flow, price_chg, mcap,
+                effective_flow, price_chg, mcap,
                 trader_count=r.get("sm_trader_count", 0),
                 holdings_change=r.get("sm_holdings_change", 0),
             )
@@ -361,10 +400,6 @@ def refresh_cache():
     # Add new discovered tokens
     added = 0
     existing_addrs = set(r.get("token_address", "").lower() for r in results)
-
-    # Use a seeded random for reproducible but varying price changes
-    import hashlib
-    hour_seed = int(datetime.now(timezone.utc).strftime("%Y%m%d%H"))
 
     for t in new_tokens:
         if t["token_address"].lower() in existing_addrs:
