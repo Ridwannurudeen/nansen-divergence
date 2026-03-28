@@ -71,17 +71,21 @@ def history_performance():
 
 
 @app.post("/api/scan/run")
-def scan_on_demand(chains: list[str] = ["ethereum"], limit: int = 20, x_nansen_key: str = Header(None)):
+def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str = Header(None)):
     if not x_nansen_key:
         raise HTTPException(status_code=401, detail="Nansen API key required. Pass X-Nansen-Key header.")
 
     import os
     os.environ["NANSEN_API_KEY"] = x_nansen_key
 
-    from nansen_divergence.scanner import scan_multi_chain, flatten_and_rank, flatten_radar, summarize
+    from api.cache import save_cached_scan
     from nansen_divergence.divergence import alpha_score
+    from nansen_divergence.history import backtest_stats, init_db, save_scan, validate_signals
+    from nansen_divergence.scanner import flatten_and_rank, flatten_radar, scan_multi_chain, summarize
 
-    chain_results, chain_radar = scan_multi_chain(chains, timeframe="24h", limit=limit)
+    chain_list = [c.strip() for c in chains.split(",") if c.strip()]
+
+    chain_results, chain_radar = scan_multi_chain(chain_list, timeframe="24h", limit=limit)
     flat = flatten_and_rank(chain_results)
     radar = flatten_radar(chain_radar)
     summary = summarize(flat, radar)
@@ -89,7 +93,24 @@ def scan_on_demand(chains: list[str] = ["ethereum"], limit: int = 20, x_nansen_k
     for r in flat:
         r["alpha_score"] = alpha_score(r.get("divergence_strength", 0))
 
-    return {"results": flat, "radar": radar, "summary": summary, "chains": chains}
+    # Save to history DB
+    init_db()
+    save_scan(flat, chain_list)
+    validations = validate_signals(flat, lookback_days=30)
+    bstats = backtest_stats(validations)
+
+    # Save to cache for /api/scan/latest
+    scan_data = {
+        "results": flat,
+        "radar": radar,
+        "summary": summary,
+        "chains": chain_list,
+        "validations": validations,
+        "backtest": bstats,
+    }
+    save_cached_scan(scan_data)
+
+    return scan_data
 
 
 @app.get("/api/deep-dive/{chain}/{token}")
@@ -213,7 +234,7 @@ def history_outcomes(days: int = 30):
     data = get_latest_scan()
     if not data or not data.get("results"):
         return {"outcomes": [], "stats": {"total_signals": 0, "wins": 0, "losses": 0, "win_rate": 0.0, "avg_return": 0.0, "best_return": 0.0, "worst_return": 0.0}}
-    from nansen_divergence.history import validate_signals, backtest_stats
+    from nansen_divergence.history import backtest_stats, validate_signals
     validations = validate_signals(data["results"], lookback_days=days)
     stats = backtest_stats(validations)
     return {"outcomes": validations, "stats": stats}
