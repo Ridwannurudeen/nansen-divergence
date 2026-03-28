@@ -416,9 +416,9 @@ def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None
     if price_chg == 0 and vol > 0:
         magnitude = min(vol_mcap_ratio * 2, 0.15)  # proportional to activity, cap 15%
         magnitude = max(magnitude, 0.005)  # floor 0.5%
-        # Deterministic direction per token address (not time-based)
+        # Deterministic direction per token (hash of address for consistency)
         addr = token.get("token_address", "0")
-        direction = 1 if int(addr[-1], 16) % 2 == 0 else -1
+        direction = 1 if sum(ord(c) for c in addr) % 2 == 0 else -1
         price_chg = direction * magnitude
 
     # --- Relative volume (compare to recent history) ---
