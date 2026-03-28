@@ -134,7 +134,8 @@ def _run_mcp_refresh():
 
 
 # MCP refresh interval (separate from credit-based scans)
-MCP_REFRESH_MINUTES = int(os.getenv("MCP_REFRESH_MINUTES", "60"))
+# Default 5min — general_search is unlimited so we refresh aggressively
+MCP_REFRESH_MINUTES = int(os.getenv("MCP_REFRESH_MINUTES", "5"))
 
 
 def start_scheduler():
