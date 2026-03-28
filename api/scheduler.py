@@ -118,14 +118,22 @@ def _run_scan():
 
 
 def _enrich_with_cli(results: list[dict]) -> list[dict]:
-    """Enrich MCP-discovered tokens with real Nansen CLI data.
+    """Enrich MCP-discovered tokens with real Nansen CLI/REST data.
 
     Calls token_screener + smart_money_netflow for CLI_ENRICH_CHAINS,
     then overrides volume-proxy fields with real SM data where available.
+    Uses REST API directly to avoid CLI binary auth issues in Docker.
     Cost: ~12 credits per run (2 chains × 6 credits).
     """
     from nansen_divergence.divergence import score_divergence
-    from nansen_divergence.nansen import InsufficientCreditsError, smart_money_netflow, token_screener
+    from nansen_divergence.nansen import (
+        InsufficientCreditsError,
+        _api_post,
+        _get_api_key,
+        _notify_log,
+        smart_money_netflow,
+        token_screener,
+    )
 
     enriched_count = 0
 
@@ -137,9 +145,14 @@ def _enrich_with_cli(results: list[dict]) -> list[dict]:
         screener_lookup: dict[str, dict] = {}
         netflow_lookup: dict[str, dict] = {}
 
-        # Fetch screener data (1 credit per page)
+        # Fetch screener data — try REST first (avoids Docker CLI auth issues)
         try:
-            screener_data = token_screener(chain, pages=1)
+            if _get_api_key():
+                resp = _api_post("/token-screener", {"chain": chain, "timeframe": "24h", "page": 1})
+                data = resp.get("data", resp)
+                screener_data = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            else:
+                screener_data = token_screener(chain, pages=1)
             for t in screener_data:
                 addr = (t.get("token_address") or "").lower()
                 if addr:
@@ -151,9 +164,14 @@ def _enrich_with_cli(results: list[dict]) -> list[dict]:
         except Exception as e:
             logger.warning(f"CLI enrichment: {chain} screener failed: {e}")
 
-        # Fetch SM netflow data (5 credits per page)
+        # Fetch SM netflow data — try REST first
         try:
-            netflow_data = smart_money_netflow(chain, pages=1)
+            if _get_api_key():
+                resp = _api_post("/smart-money/netflow", {"chain": chain, "page": 1})
+                data = resp.get("data", resp)
+                netflow_data = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            else:
+                netflow_data = smart_money_netflow(chain, pages=1)
             for f in netflow_data:
                 addr = (f.get("token_address") or "").lower()
                 if addr:
