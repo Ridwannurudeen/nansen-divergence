@@ -226,7 +226,7 @@ def _prefetch_deep_dives(results: list[dict], scan_data: dict):
         and r.get("divergence_strength", 0) > 0
     ]
     candidates.sort(key=lambda x: x.get("divergence_strength", 0), reverse=True)
-    top_tokens = candidates[:3]
+    top_tokens = candidates[:2]
 
     if not top_tokens:
         logger.info("No candidates for pre-built deep dives")
