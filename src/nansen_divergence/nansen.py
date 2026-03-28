@@ -167,7 +167,9 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
     all_tokens: list[dict] = []
     try:
         for page in range(1, pages + 1):
-            resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
+            args = ["research", "token", "screener", "--chain", chain,
+                    "--timeframe", timeframe, "--page", str(page)]
+            resp = _run(args)
             if resp.get("success"):
                 all_tokens.extend(resp["data"]["data"])
                 if resp["data"].get("pagination", {}).get("is_last_page", True):

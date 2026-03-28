@@ -162,21 +162,21 @@ def scan_chain(
     try:
         dex_trades = nansen.smart_money_dex_trades(chain, pages=dex_pages)
     except InsufficientCreditsError:
-        console.print(f"  [yellow]⚠ Credits exhausted on dex-trades — using screener data only[/yellow]")
+        console.print("  [yellow]⚠ Credits exhausted on dex-trades — using screener data only[/yellow]")
         dex_trades = []
 
     console.print(f"  [dim]Fetching SM holdings for [bold]{chain}[/bold]...[/dim]")
     try:
         holdings = nansen.smart_money_holdings(chain)
     except InsufficientCreditsError:
-        console.print(f"  [yellow]⚠ Credits exhausted on holdings — skipping[/yellow]")
+        console.print("  [yellow]⚠ Credits exhausted on holdings — skipping[/yellow]")
         holdings = []
 
     console.print(f"  [dim]Fetching SM netflow for [bold]{chain}[/bold] ({netflow_pages}p)...[/dim]")
     try:
         netflow = nansen.smart_money_netflow(chain, pages=netflow_pages)
     except InsufficientCreditsError:
-        console.print(f"  [yellow]⚠ Credits exhausted on netflow — skipping[/yellow]")
+        console.print("  [yellow]⚠ Credits exhausted on netflow — skipping[/yellow]")
         netflow = []
 
     # Deduplicate tokens (MCP pagination can return duplicates)
@@ -324,7 +324,9 @@ def scan_multi_chain(
             all_radar[chain] = radar
             console.print(f"  [green]✓ {chain.upper()}: {len(results)} tokens, {len(radar)} radar[/green]")
         except InsufficientCreditsError:
-            console.print(f"  [red]✗ Credits exhausted at {chain.upper()} — stopping scan to preserve remaining credits[/red]")
+            console.print(
+                f"  [red]✗ Credits exhausted at {chain.upper()} — stopping[/red]"
+            )
             all_results[chain] = []
             all_radar[chain] = []
             break  # Stop scanning further chains

@@ -17,7 +17,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .divergence import alpha_score, classify_phase, generate_narrative, is_stablecoin, score_divergence
+from .divergence import alpha_score, generate_narrative, is_stablecoin, score_divergence
 
 # ---------------------------------------------------------------------------
 # MCP transport
@@ -286,10 +286,10 @@ def _save_prices(conn: sqlite3.Connection, tokens: list[dict]):
         (t["token_address"], t.get("chain", ""), t["price_usd"], t.get("volume_24h", 0), now)
         for t in tokens if t.get("price_usd", 0) > 0
     ]
-    conn.executemany(
-        "INSERT OR REPLACE INTO price_history (token_address, chain, price_usd, volume_24h, timestamp) VALUES (?,?,?,?,?)",
-        rows,
-    )
+    sql = ("INSERT OR REPLACE INTO price_history "
+           "(token_address, chain, price_usd, volume_24h, timestamp) "
+           "VALUES (?,?,?,?,?)")
+    conn.executemany(sql, rows)
     conn.commit()
 
 
