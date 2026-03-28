@@ -21,6 +21,12 @@ from .mcp_client import (
     mcp_token_screener,
 )
 
+
+class InsufficientCreditsError(Exception):
+    """Raised when API returns 403 Insufficient credits — stops all fallback."""
+    pass
+
+
 # ---------------------------------------------------------------------------
 # REST API helpers
 # ---------------------------------------------------------------------------
@@ -53,6 +59,8 @@ def _api_post(endpoint: str, payload: dict) -> dict:
     except urllib.error.HTTPError as exc:
         body = exc.read().decode(errors="replace") if exc.fp else ""
         print(f"Nansen API error {exc.code} on {endpoint}: {body}", file=sys.stderr)
+        if exc.code == 403 and "Insufficient credits" in body:
+            raise InsufficientCreditsError(f"No credits left for {endpoint}")
         return {}
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         print(f"Nansen API request failed for {endpoint}: {exc}", file=sys.stderr)
@@ -96,6 +104,8 @@ def _run(args: list[str]) -> dict:
 
     if result.returncode != 0:
         print(f"Error running: {' '.join(cmd)}\n{result.stderr}", file=sys.stderr)
+        if "Insufficient credits" in (result.stderr or "") or "Insufficient credits" in (result.stdout or ""):
+            raise InsufficientCreditsError(f"No credits left: {' '.join(cmd)}")
         return {"success": False, "data": {"data": []}}
 
     if not result.stdout:
@@ -116,14 +126,17 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
     """
     # --- CLI path (first priority) ---
     all_tokens: list[dict] = []
-    for page in range(1, pages + 1):
-        resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
-        if resp.get("success"):
-            all_tokens.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
+    try:
+        for page in range(1, pages + 1):
+            resp = _run(["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)])
+            if resp.get("success"):
+                all_tokens.extend(resp["data"]["data"])
+                if resp["data"].get("pagination", {}).get("is_last_page", True):
+                    break
+            else:
                 break
-        else:
-            break
+    except InsufficientCreditsError:
+        raise  # Stop all fallback
     if all_tokens:
         return all_tokens
 
@@ -156,8 +169,6 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
             all_tokens = []
 
         # Merge SM-active tokens so the scanner has targets for SM trade matching.
-        # SM traders often trade different tokens than what appears in the
-        # market-wide screener; including them ensures divergence scoring works.
         if all_tokens:
             try:
                 sm_tokens = mcp_sm_token_screener(chain, pages=1)
@@ -172,28 +183,31 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
     return []
 
 
-def smart_money_netflow(chain: str) -> list[dict]:
+def smart_money_netflow(chain: str, pages: int = 1) -> list[dict]:
     """Fetch smart money net flows per token.
 
     Priority: CLI binary > REST API > MCP API.
     """
     # --- CLI path (first priority) ---
     all_flows: list[dict] = []
-    for page in range(1, 3):
-        resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
-        if resp.get("success"):
-            all_flows.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
+    try:
+        for page in range(1, pages + 1):
+            resp = _run(["research", "smart-money", "netflow", "--chain", chain, "--page", str(page)])
+            if resp.get("success"):
+                all_flows.extend(resp["data"]["data"])
+                if resp["data"].get("pagination", {}).get("is_last_page", True):
+                    break
+            else:
                 break
-        else:
-            break
+    except InsufficientCreditsError:
+        raise
     if all_flows:
         return all_flows
 
     # --- REST API path ---
     if _get_api_key():
         all_flows = []
-        for page in range(1, 3):
+        for page in range(1, pages + 1):
             resp = _api_post("/smart-money/netflow", {"chain": chain, "page": page})
             data = resp.get("data", resp)
             if isinstance(data, dict):
@@ -276,14 +290,17 @@ def smart_money_dex_trades(chain: str, pages: int = 3) -> list[dict]:
     """
     # --- CLI path (first priority) ---
     all_trades: list[dict] = []
-    for page in range(1, pages + 1):
-        resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
-        if resp.get("success"):
-            all_trades.extend(resp["data"]["data"])
-            if resp["data"].get("pagination", {}).get("is_last_page", True):
+    try:
+        for page in range(1, pages + 1):
+            resp = _run(["research", "smart-money", "dex-trades", "--chain", chain, "--page", str(page)])
+            if resp.get("success"):
+                all_trades.extend(resp["data"]["data"])
+                if resp["data"].get("pagination", {}).get("is_last_page", True):
+                    break
+            else:
                 break
-        else:
-            break
+    except InsufficientCreditsError:
+        raise
     if all_trades:
         return all_trades
 
@@ -324,7 +341,10 @@ def smart_money_holdings(chain: str) -> list[dict]:
     Priority: CLI binary > REST API > MCP API.
     """
     # --- CLI path (first priority) ---
-    resp = _run(["research", "smart-money", "holdings", "--chain", chain])
+    try:
+        resp = _run(["research", "smart-money", "holdings", "--chain", chain])
+    except InsufficientCreditsError:
+        raise
     if resp.get("success"):
         data = resp["data"].get("data", [])
         if data:

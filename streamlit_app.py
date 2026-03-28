@@ -34,7 +34,7 @@ from nansen_divergence.history import (  # noqa: E402
 )
 from nansen_divergence.report import DEXSCREENER_SLUGS  # noqa: E402
 from nansen_divergence.scanner import (  # noqa: E402
-    count_api_calls,
+    count_api_credits,
     flatten_and_rank,
     flatten_radar,
     scan_multi_chain,
@@ -591,7 +591,7 @@ def _render_chain_pulse(scanned_chains: list[str], results: list[dict]):
             chain_phases[chain] = "acc" if acc > 0 else "neutral"
 
     now = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-    credits_est = count_api_calls(scanned_chains, st.session_state.get("limit", 20))
+    credits_est = count_api_credits(scanned_chains, st.session_state.get("limit", 20))
 
     items_html = ""
     for chain_key in ALL_CHAINS:

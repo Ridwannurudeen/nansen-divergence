@@ -6,6 +6,7 @@ from rich.console import Console
 
 from . import nansen
 from .divergence import generate_narrative, is_divergent, is_stablecoin, score_divergence
+from .nansen import InsufficientCreditsError
 
 console = Console(stderr=True, force_terminal=True)
 
@@ -149,15 +150,34 @@ def scan_chain(
     console.print(f"  [dim]Fetching token screener for [bold]{chain}[/bold]...[/dim]")
     tokens = nansen.token_screener(chain, timeframe=timeframe, pages=pages)
 
-    dex_pages = int(__import__("os").getenv("SCAN_DEX_PAGES", "3"))
-    console.print(f"  [dim]Fetching SM dex-trades for [bold]{chain}[/bold]...[/dim]")
-    dex_trades = nansen.smart_money_dex_trades(chain, pages=dex_pages)
+    if not tokens:
+        console.print(f"  [yellow]⚠ {chain.upper()}: screener returned 0 tokens — skipping SM endpoints[/yellow]")
+        return [], []
+
+    import os
+
+    dex_pages = int(os.getenv("SCAN_DEX_PAGES", "1"))
+    netflow_pages = int(os.getenv("SCAN_NETFLOW_PAGES", "1"))
+    console.print(f"  [dim]Fetching SM dex-trades for [bold]{chain}[/bold] ({dex_pages}p)...[/dim]")
+    try:
+        dex_trades = nansen.smart_money_dex_trades(chain, pages=dex_pages)
+    except InsufficientCreditsError:
+        console.print(f"  [yellow]⚠ Credits exhausted on dex-trades — using screener data only[/yellow]")
+        dex_trades = []
 
     console.print(f"  [dim]Fetching SM holdings for [bold]{chain}[/bold]...[/dim]")
-    holdings = nansen.smart_money_holdings(chain)
+    try:
+        holdings = nansen.smart_money_holdings(chain)
+    except InsufficientCreditsError:
+        console.print(f"  [yellow]⚠ Credits exhausted on holdings — skipping[/yellow]")
+        holdings = []
 
-    console.print(f"  [dim]Fetching SM netflow for [bold]{chain}[/bold]...[/dim]")
-    netflow = nansen.smart_money_netflow(chain)
+    console.print(f"  [dim]Fetching SM netflow for [bold]{chain}[/bold] ({netflow_pages}p)...[/dim]")
+    try:
+        netflow = nansen.smart_money_netflow(chain, pages=netflow_pages)
+    except InsufficientCreditsError:
+        console.print(f"  [yellow]⚠ Credits exhausted on netflow — skipping[/yellow]")
+        netflow = []
 
     # Deduplicate tokens (MCP pagination can return duplicates)
     seen_addrs: set[str] = set()
@@ -303,6 +323,11 @@ def scan_multi_chain(
             all_results[chain] = results
             all_radar[chain] = radar
             console.print(f"  [green]✓ {chain.upper()}: {len(results)} tokens, {len(radar)} radar[/green]")
+        except InsufficientCreditsError:
+            console.print(f"  [red]✗ Credits exhausted at {chain.upper()} — stopping scan to preserve remaining credits[/red]")
+            all_results[chain] = []
+            all_radar[chain] = []
+            break  # Stop scanning further chains
         except Exception as e:
             console.print(f"  [red]✗ {chain.upper()} failed: {e}[/red]")
             all_results[chain] = []
@@ -330,13 +355,19 @@ def flatten_radar(chain_radar: dict[str, list[dict]]) -> list[dict]:
     return flat
 
 
-def count_api_calls(chains: list[str], limit: int = 20) -> int:
-    """Estimate the number of API calls for a scan.
+def count_api_credits(chains: list[str], limit: int = 20) -> int:
+    """Estimate the number of API credits for a scan.
 
-    Per chain: screener pages + 3 dex-trade pages + 1 holdings + 2 netflow pages
+    Credit costs (Pro plan): screener=1/call, SM endpoints=5/call.
+    Per chain: screener_pages*1 + dex_pages*5 + 1*5 holdings + netflow_pages*5
     """
-    pages_per_chain = max(1, (limit + 9) // 10)
-    return len(chains) * (pages_per_chain + 3 + 1 + 2)
+    import os
+
+    screener_pages = max(1, (limit + 9) // 10)
+    dex_pages = int(os.getenv("SCAN_DEX_PAGES", "1"))
+    netflow_pages = int(os.getenv("SCAN_NETFLOW_PAGES", "1"))
+    per_chain = screener_pages * 1 + dex_pages * 5 + 1 * 5 + netflow_pages * 5
+    return len(chains) * per_chain
 
 
 def summarize(results: list[dict], radar: list[dict]) -> dict:

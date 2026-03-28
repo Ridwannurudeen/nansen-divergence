@@ -7,7 +7,7 @@ from rich.console import Console
 
 from .alerts import send_divergence_alerts, send_scan_summary
 from .history import init_db, save_scan, validate_signals
-from .scanner import count_api_calls, flatten_and_rank, flatten_radar, scan_multi_chain, summarize
+from .scanner import count_api_credits, flatten_and_rank, flatten_radar, scan_multi_chain, summarize
 
 console = Console(stderr=True, force_terminal=True)
 
@@ -33,7 +33,7 @@ def run_watch_loop(args):
     chains = [c.strip().lower() for c in args.chains.split(",") if c.strip()]
     interval_mins = args.watch
     use_telegram = getattr(args, "telegram", False)
-    api_calls_per_scan = count_api_calls(chains, args.limit)
+    api_calls_per_scan = count_api_credits(chains, args.limit)
 
     # Credit warning
     scans_per_hour = 60 // interval_mins if interval_mins > 0 else 1

@@ -13,7 +13,7 @@ from .formatter import (
     print_scan_results,
     print_validation_section,
 )
-from .scanner import count_api_calls, flatten_and_rank, flatten_radar, scan_multi_chain, summarize
+from .scanner import count_api_credits, flatten_and_rank, flatten_radar, scan_multi_chain, summarize
 
 DEFAULT_CHAINS = ["ethereum", "bnb", "solana", "base", "arbitrum", "polygon", "optimism", "avalanche", "linea"]
 
@@ -87,7 +87,7 @@ def cmd_scan(args: argparse.Namespace):
         flat = [r for r in flat if r["phase"] in ("ACCUMULATION", "DISTRIBUTION")]
 
     summary_data = summarize(flat, radar)
-    api_call_count = count_api_calls(chains, args.limit)
+    api_call_count = count_api_credits(chains, args.limit)
 
     # Save to history (never crash scan)
     validations = []
