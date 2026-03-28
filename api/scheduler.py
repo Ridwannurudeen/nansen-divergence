@@ -110,6 +110,33 @@ def _run_scan():
         _maybe_seed_demo(chains)
 
 
+def _run_mcp_refresh():
+    """Run a zero-credit scan using MCP general_search."""
+    from api.cache import save_cached_scan
+
+    logger.info("Starting MCP search refresh (0 credits)")
+    try:
+        from nansen_divergence.mcp_search import run_mcp_search_scan
+
+        scan_data = run_mcp_search_scan(max_tokens=150)
+        if scan_data.get("results"):
+            save_cached_scan(scan_data)
+            logger.info(
+                f"MCP refresh complete: {scan_data['summary']['total_tokens']} tokens, "
+                f"{scan_data['summary']['divergence_signals']} divergent, "
+                f"{scan_data['summary']['confidence_high']} HIGH across "
+                f"{scan_data['summary']['chains_scanned']} chains"
+            )
+        else:
+            logger.warning("MCP refresh returned 0 tokens")
+    except Exception as e:
+        logger.error(f"MCP refresh failed: {e}")
+
+
+# MCP refresh interval (separate from credit-based scans)
+MCP_REFRESH_MINUTES = int(os.getenv("MCP_REFRESH_MINUTES", "60"))
+
+
 def start_scheduler():
     scheduler = BackgroundScheduler()
 
@@ -118,17 +145,29 @@ def start_scheduler():
     _maybe_seed_demo(chains)
 
     # Skip scheduling if interval is 0 (disabled)
-    if SCAN_INTERVAL_MINUTES <= 0:
-        logger.info("Scheduler disabled (SCAN_INTERVAL_MINUTES=0)")
+    if SCAN_INTERVAL_MINUTES <= 0 and MCP_REFRESH_MINUTES <= 0:
+        logger.info("Scheduler disabled (all intervals=0)")
         return scheduler
 
-    scheduler.add_job(_run_scan, "interval", minutes=SCAN_INTERVAL_MINUTES, id="auto_scan")
+    # Credit-based scan (if enabled)
+    if SCAN_INTERVAL_MINUTES > 0:
+        scheduler.add_job(_run_scan, "interval", minutes=SCAN_INTERVAL_MINUTES, id="auto_scan")
 
-    # Only run initial scan if SCAN_ON_STARTUP=1
-    if os.getenv("SCAN_ON_STARTUP", "0") == "1":
+    # MCP zero-credit refresh (always enabled unless explicitly disabled)
+    if MCP_REFRESH_MINUTES > 0:
+        scheduler.add_job(
+            _run_mcp_refresh, "interval",
+            minutes=MCP_REFRESH_MINUTES, id="mcp_refresh",
+        )
+        # Run MCP refresh on startup
+        scheduler.add_job(_run_mcp_refresh, "date", id="initial_mcp_refresh")
+        logger.info(f"MCP refresh enabled: every {MCP_REFRESH_MINUTES}min (0 credits)")
+
+    # Only run initial credit scan if SCAN_ON_STARTUP=1
+    if SCAN_INTERVAL_MINUTES > 0 and os.getenv("SCAN_ON_STARTUP", "0") == "1":
         scheduler.add_job(_run_scan, "date", id="initial_scan")
 
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
-    logger.info(f"Scheduler started: scanning every {SCAN_INTERVAL_MINUTES}min{budget_msg}")
+    logger.info(f"Scheduler started: credit scan every {SCAN_INTERVAL_MINUTES}min{budget_msg}")
     return scheduler

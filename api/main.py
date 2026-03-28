@@ -118,6 +118,18 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
     return scan_data
 
 
+@app.post("/api/scan/mcp-refresh")
+def scan_mcp_refresh(max_tokens: int = 150):
+    """Run a zero-credit scan using MCP general_search."""
+    from api.cache import save_cached_scan
+    from nansen_divergence.mcp_search import run_mcp_search_scan
+
+    scan_data = run_mcp_search_scan(max_tokens=max_tokens)
+    if scan_data.get("results"):
+        save_cached_scan(scan_data)
+    return scan_data
+
+
 @app.get("/api/deep-dive/{chain}/{token}")
 def deep_dive(chain: str, token: str, x_nansen_key: str = Header(None)):
     if not x_nansen_key:
