@@ -146,6 +146,15 @@ def generate_narrative(token: dict) -> str:
     pct = abs(price_chg * 100)
 
     if abs_flow == 0:
+        # Price-only narrative when no flow data available
+        if phase == "ACCUMULATION":
+            return f"{symbol} dropped {pct:.1f}% — divergence score signals hidden buying pressure"
+        elif phase == "DISTRIBUTION":
+            return f"{symbol} rallied {pct:.1f}% — divergence score signals distribution risk"
+        elif phase == "MARKUP":
+            return f"{symbol} up {pct:.1f}% with confirmed momentum"
+        elif phase == "MARKDOWN":
+            return f"{symbol} down {pct:.1f}% under selling pressure"
         return ""
 
     # Format flow amount

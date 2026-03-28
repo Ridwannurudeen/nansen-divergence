@@ -208,7 +208,7 @@ class TestNarrativeGeneration:
         narrative = generate_narrative(token)
         assert "confirming" in narrative
 
-    def test_no_data_empty_narrative(self):
+    def test_no_flow_price_only_narrative(self):
         token = {
             "token_symbol": "XYZ",
             "sm_net_flow": 0,
@@ -216,7 +216,9 @@ class TestNarrativeGeneration:
             "price_change": -0.01,
             "phase": "MARKDOWN",
         }
-        assert generate_narrative(token) == ""
+        result = generate_narrative(token)
+        assert "XYZ" in result
+        assert "selling pressure" in result
 
     def test_singular_wallet(self):
         token = {

@@ -99,7 +99,12 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
     validations = validate_signals(flat, lookback_days=30)
     bstats = backtest_stats(validations)
 
-    # Save to cache for /api/scan/latest
+    # Only save to cache if we have results (don't overwrite good data with empty)
+    if not flat:
+        old = get_latest_scan()
+        if old and old.get("results"):
+            return old
+
     scan_data = {
         "results": flat,
         "radar": radar,
