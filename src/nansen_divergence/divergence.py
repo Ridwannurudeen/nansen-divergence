@@ -130,17 +130,22 @@ def generate_narrative(token: dict) -> str:
     """Generate a one-line narrative explaining the divergence signal.
 
     token dict expected keys: token_symbol, sm_net_flow, sm_trader_count,
-    price_change, phase, sm_buy_volume, sm_sell_volume
+    price_change, phase, sm_buy_volume, sm_sell_volume, market_netflow
     """
     symbol = token.get("token_symbol", "???")
     flow = token.get("sm_net_flow", 0)
     traders = token.get("sm_trader_count", 0)
+    market_nf = token.get("market_netflow", 0)
     price_chg = token.get("price_change", 0)
     phase = token.get("phase", "")
-    abs_flow = abs(flow)
+
+    # Use SM flow if available, fall back to market netflow
+    has_sm = flow != 0 or traders > 0
+    effective_flow = flow if flow != 0 else market_nf
+    abs_flow = abs(effective_flow)
     pct = abs(price_chg * 100)
 
-    if abs_flow == 0 and traders == 0:
+    if abs_flow == 0:
         return ""
 
     # Format flow amount
@@ -151,16 +156,19 @@ def generate_narrative(token: dict) -> str:
     else:
         flow_str = f"${abs_flow:.0f}"
 
-    wallet_str = f"{traders} SM wallet{'s' if traders != 1 else ''}"
+    if has_sm:
+        source = f"{traders} SM wallet{'s' if traders != 1 else ''}"
+    else:
+        source = "Market netflow"
 
     if phase == "ACCUMULATION":
-        return f"{wallet_str} bought {flow_str} of {symbol} while price dropped {pct:.1f}% -- stealth loading"
+        return f"{source} shows {flow_str} inflow into {symbol} while price dropped {pct:.1f}% -- stealth loading"
     elif phase == "DISTRIBUTION":
-        return f"{wallet_str} dumped {flow_str} of {symbol} into a {pct:.1f}% rally -- exit liquidity"
+        return f"{source} shows {flow_str} outflow from {symbol} into a {pct:.1f}% rally -- exit liquidity"
     elif phase == "MARKUP":
-        return f"{wallet_str} added {flow_str} to {symbol} confirming {pct:.1f}% uptrend"
+        return f"{source} shows {flow_str} inflow into {symbol} confirming {pct:.1f}% uptrend"
     elif phase == "MARKDOWN":
-        return f"{wallet_str} sold {flow_str} of {symbol} accelerating {pct:.1f}% decline"
+        return f"{source} shows {flow_str} outflow from {symbol} accelerating {pct:.1f}% decline"
     return ""
 
 
