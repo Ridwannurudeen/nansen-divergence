@@ -92,29 +92,69 @@ export default function About() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent">2.</span>
+            <span className="text-bullish font-bold">CLI Enrichment</span>
+            <span className="text-muted/50">—</span>
+            <span className="text-white">Real SM data via <code className="text-accent">token screener</code> + <code className="text-accent">smart-money netflow</code> (~12 credits/cycle)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-accent">3.</span>
             <span className="text-muted">Price History</span>
             <span className="text-muted/50">—</span>
             <span className="text-white">SQLite-tracked price snapshots for real change computation</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-accent">3.</span>
+            <span className="text-accent">4.</span>
             <span className="text-muted">Volume Proxy</span>
             <span className="text-muted/50">—</span>
             <span className="text-white">Vol/MCap ratio + relative volume → activity classification</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-accent">4.</span>
+            <span className="text-accent">5.</span>
             <span className="text-muted">Divergence Engine</span>
             <span className="text-muted/50">—</span>
             <span className="text-white">Price-volume divergence → Wyckoff phase + confidence</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-accent">5.</span>
+            <span className="text-accent">6.</span>
             <span className="text-muted">Signal History</span>
             <span className="text-muted/50">—</span>
             <span className="text-white">Outcome tracking + backtesting against price changes</span>
           </div>
         </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-mono font-bold text-white mb-3">Hybrid Pipeline: CLI + Volume Proxy</h2>
+        <p className="text-muted leading-relaxed mb-3">
+          Top tokens on Ethereum and BNB Chain are enriched with real smart money data from the Nansen CLI
+          (<code className="text-accent">research token screener</code> + <code className="text-accent">research smart-money netflow</code>).
+          Remaining tokens use volume proxy analysis. Tokens with CLI data are marked with a green
+          <span className="text-xs bg-bullish text-bg px-1 rounded font-bold mx-1">CLI</span> badge;
+          volume-proxy tokens show a gray <span className="text-xs bg-border text-muted px-1 rounded mx-1">VP</span> badge.
+        </p>
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <table className="w-full text-sm font-mono">
+            <thead><tr className="border-b border-border text-muted">
+              <th className="text-left p-3">CLI Command</th><th className="text-left p-3">Data</th><th className="text-right p-3">Credits</th>
+            </tr></thead>
+            <tbody>
+              <tr className="border-b border-border/50">
+                <td className="p-3 text-accent">research token screener</td>
+                <td className="p-3 text-white">Real price, market cap, market netflow</td>
+                <td className="p-3 text-right text-muted">1/page</td>
+              </tr>
+              <tr>
+                <td className="p-3 text-accent">research smart-money netflow</td>
+                <td className="p-3 text-white">Real SM net flow per token (24h/7d)</td>
+                <td className="p-3 text-right text-muted">5/page</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-muted text-sm mt-2">
+          Enrichment runs every 30 minutes, consuming ~12 credits per cycle (~288/day). Configurable via
+          <code className="text-accent ml-1">CLI_ENRICH_CHAINS</code> and <code className="text-accent ml-1">CLI_ENRICH_MINUTES</code> env vars.
+        </p>
       </section>
 
       <section className="mb-8">

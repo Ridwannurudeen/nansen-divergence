@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time as _time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -10,6 +11,11 @@ logger = logging.getLogger("nansen.scheduler")
 
 DEFAULT_CHAINS = ["ethereum", "bnb", "solana", "base", "arbitrum"]
 SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "30"))
+
+# CLI enrichment settings
+CLI_ENRICH_MINUTES = int(os.getenv("CLI_ENRICH_MINUTES", "30"))
+CLI_ENRICH_CHAINS = os.getenv("CLI_ENRICH_CHAINS", "ethereum,bnb").split(",")
+_last_cli_enrich: float = 0.0  # timestamp of last CLI enrichment
 
 # Credit budget management
 CREDIT_BUDGET = int(os.getenv("CREDIT_BUDGET", "0"))  # 0 = unlimited (no tracking)
@@ -111,6 +117,100 @@ def _run_scan():
         _maybe_seed_demo(chains)
 
 
+def _enrich_with_cli(results: list[dict]) -> list[dict]:
+    """Enrich MCP-discovered tokens with real Nansen CLI data.
+
+    Calls token_screener + smart_money_netflow for CLI_ENRICH_CHAINS,
+    then overrides volume-proxy fields with real SM data where available.
+    Cost: ~12 credits per run (2 chains × 6 credits).
+    """
+    from nansen_divergence.divergence import score_divergence
+    from nansen_divergence.nansen import InsufficientCreditsError, smart_money_netflow, token_screener
+
+    enriched_count = 0
+
+    for chain in CLI_ENRICH_CHAINS:
+        chain = chain.strip()
+        if not chain:
+            continue
+
+        screener_lookup: dict[str, dict] = {}
+        netflow_lookup: dict[str, dict] = {}
+
+        # Fetch screener data (1 credit per page)
+        try:
+            screener_data = token_screener(chain, pages=1)
+            for t in screener_data:
+                addr = (t.get("token_address") or "").lower()
+                if addr:
+                    screener_lookup[addr] = t
+            logger.info(f"CLI enrichment: {chain} screener returned {len(screener_data)} tokens")
+        except InsufficientCreditsError:
+            logger.warning(f"CLI enrichment: insufficient credits for {chain} screener — skipping")
+            continue
+        except Exception as e:
+            logger.warning(f"CLI enrichment: {chain} screener failed: {e}")
+
+        # Fetch SM netflow data (5 credits per page)
+        try:
+            netflow_data = smart_money_netflow(chain, pages=1)
+            for f in netflow_data:
+                addr = (f.get("token_address") or "").lower()
+                if addr:
+                    netflow_lookup[addr] = f
+            logger.info(f"CLI enrichment: {chain} netflow returned {len(netflow_data)} tokens")
+        except InsufficientCreditsError:
+            logger.warning(f"CLI enrichment: insufficient credits for {chain} netflow — skipping")
+        except Exception as e:
+            logger.warning(f"CLI enrichment: {chain} netflow failed: {e}")
+
+        # Override MCP results with real CLI data
+        for r in results:
+            if r.get("chain", "").lower() != chain.lower():
+                continue
+            addr = (r.get("token_address") or "").lower()
+
+            updated = False
+
+            # Override with screener data
+            if addr in screener_lookup:
+                s = screener_lookup[addr]
+                if s.get("market_cap_usd"):
+                    r["market_cap"] = s["market_cap_usd"]
+                if s.get("price_usd"):
+                    r["price_usd"] = s["price_usd"]
+                if s.get("netflow"):
+                    r["market_netflow"] = s["netflow"]
+                updated = True
+
+            # Override with netflow data
+            if addr in netflow_lookup:
+                nf = netflow_lookup[addr]
+                flow_24h = nf.get("net_flow_24h_usd", 0)
+                if flow_24h:
+                    r["sm_net_flow"] = flow_24h
+                updated = True
+
+            if updated:
+                # Re-score with real data
+                scoring_flow = r.get("sm_net_flow", 0) or r.get("market_netflow", 0)
+                strength, phase, confidence = score_divergence(
+                    sm_net_flow=scoring_flow,
+                    price_change_pct=r.get("price_change", 0),
+                    market_cap=r.get("market_cap", 0),
+                    trader_count=r.get("sm_trader_count", 0),
+                    holdings_change=r.get("sm_holdings_change", 0),
+                )
+                r["divergence_strength"] = strength
+                r["phase"] = phase
+                r["confidence"] = confidence
+                r["signal_source"] = "nansen_cli"
+                enriched_count += 1
+
+    logger.info(f"CLI enrichment complete: {enriched_count} tokens enriched across {CLI_ENRICH_CHAINS}")
+    return results
+
+
 def _run_mcp_refresh():
     """Run a zero-credit scan using MCP general_search."""
     from api.cache import save_cached_scan
@@ -149,6 +249,23 @@ def _run_mcp_refresh():
 
             scan_data["validations"] = validations
             scan_data["backtest"] = bstats
+
+            # CLI enrichment (rate-limited)
+            global _last_cli_enrich
+            now = _time.time()
+            if CLI_ENRICH_MINUTES > 0 and (now - _last_cli_enrich) >= CLI_ENRICH_MINUTES * 60:
+                try:
+                    results = _enrich_with_cli(results)
+                    # Update summary with CLI-enriched count
+                    cli_count = sum(1 for r in results if r.get("signal_source") == "nansen_cli")
+                    scan_data["summary"]["cli_enriched_count"] = cli_count
+                    # Re-sort by divergence strength after enrichment
+                    results.sort(key=lambda x: x.get("divergence_strength", 0), reverse=True)
+                    scan_data["results"] = results
+                    _last_cli_enrich = now
+                    logger.info(f"CLI enrichment applied: {cli_count} tokens enriched")
+                except Exception as e:
+                    logger.warning(f"CLI enrichment failed (graceful fallback): {e}")
 
             save_cached_scan(scan_data)
             logger.info(
@@ -200,5 +317,6 @@ def start_scheduler():
 
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
-    logger.info(f"Scheduler started: credit scan every {SCAN_INTERVAL_MINUTES}min{budget_msg}")
+    cli_msg = f", CLI enrichment every {CLI_ENRICH_MINUTES}min for {','.join(CLI_ENRICH_CHAINS)}" if CLI_ENRICH_MINUTES > 0 else ""
+    logger.info(f"Scheduler started: credit scan every {SCAN_INTERVAL_MINUTES}min{budget_msg}{cli_msg}")
     return scheduler

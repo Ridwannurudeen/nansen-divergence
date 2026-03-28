@@ -380,6 +380,8 @@ def summarize(results: list[dict], radar: list[dict]) -> dict:
     med_conf = [r for r in results if r.get("confidence") == "MEDIUM"]
     low_conf = [r for r in results if r.get("confidence") == "LOW"]
 
+    cli_enriched = [r for r in results if r.get("signal_source") == "nansen_cli"]
+
     return {
         "total_tokens": len(results),
         "with_sm_data": len(with_sm),
@@ -391,4 +393,5 @@ def summarize(results: list[dict], radar: list[dict]) -> dict:
         "confidence_high": len(high_conf),
         "confidence_medium": len(med_conf),
         "confidence_low": len(low_conf),
+        "cli_enriched_count": len(cli_enriched),
     }

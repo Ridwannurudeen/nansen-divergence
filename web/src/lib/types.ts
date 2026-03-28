@@ -21,6 +21,7 @@ export interface Token {
   narrative: string;
   has_sm_data: boolean;
   is_new?: boolean;
+  signal_source?: "nansen_cli" | "volume_proxy";
 }
 
 export interface RadarToken {
@@ -44,6 +45,7 @@ export interface ScanSummary {
   confidence_high: number;
   confidence_medium: number;
   confidence_low: number;
+  cli_enriched_count?: number;
 }
 
 export interface BacktestStats {

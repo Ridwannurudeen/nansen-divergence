@@ -35,6 +35,14 @@ Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff mar
                     └─────────┼─────────┘
                               v
                   ┌───────────────────────┐
+                  │   CLI Enrichment       │
+                  │   (ETH + BNB, ~12cr)  │
+                  │                       │
+                  │  token screener → mcap │
+                  │  SM netflow → real SM  │
+                  └───────────┬───────────┘
+                              v
+                  ┌───────────────────────┐
                   │    Volume Proxy        │
                   │    Engine (Python)     │
                   │                       │
@@ -62,6 +70,17 @@ Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff mar
                          https://nansen.gudman.xyz
 ```
 
+### Hybrid Pipeline
+
+The scanner uses a **hybrid approach**: MCP discovers tokens at zero cost across all 8 chains, then the **Nansen CLI enriches** top tokens on Ethereum and BNB Chain with real smart money data:
+
+1. **MCP Discovery** (0 credits) — `general_search` finds 100+ tokens across 8 chains
+2. **CLI Enrichment** (~12 credits/cycle) — `token screener` + `smart-money netflow` override volume-proxy data with real market cap, price, and SM flow for ETH/BNB tokens
+3. **Volume Proxy** (0 credits) — remaining tokens scored via Vol/MCap ratio and relative volume
+4. **Divergence Engine** — Wyckoff phase classification + Alpha Score ranking
+
+Tokens enriched with real CLI data show a green **CLI** badge on the dashboard; volume-proxy tokens show **VP**.
+
 ## Dashboard Pages
 
 | Page | What It Shows |
@@ -74,12 +93,13 @@ Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff mar
 
 ## Features
 
-**Volume Proxy Pipeline (0 credits)**
-- MCP `general_search` discovers 100+ tokens across 8 chains
+**Hybrid Pipeline (MCP + CLI)**
+- MCP `general_search` discovers 100+ tokens across 8 chains (0 credits)
+- **CLI enrichment** overrides ETH/BNB tokens with real screener + SM netflow data (~12 credits/30min)
 - SQLite price history tracks real price changes over time
-- Vol/MCap ratio + relative volume → institutional activity proxy
+- Vol/MCap ratio + relative volume → institutional activity proxy (remaining tokens)
 - Price-volume divergence → accumulation/distribution detection
-- Whale count estimation from volume / avg institutional trade size
+- Dashboard badges show data source: **CLI** (green) or **VP** (gray)
 
 **Divergence Engine**
 - Multi-factor Alpha Score (0-100): flow magnitude (40%), price movement (25%), wallet diversity (20%), holdings conviction (15%)
@@ -118,6 +138,7 @@ Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff mar
 | Volume proxy analysis | Not available | Vol/MCap + relative volume signals |
 | Token watchlist | Not available | Client-side star + persist |
 | Real-time dashboard | Not available | Next.js terminal UI, 60s refresh |
+| Real SM enrichment | N/A | CLI screener + netflow → real data on ETH/BNB |
 | Zero-credit mode | N/A | MCP general_search (unlimited) |
 | Self-hosted | N/A | Docker Compose + nginx |
 
@@ -178,17 +199,17 @@ docker compose up -d
 
 ## Nansen CLI / API Usage (9 endpoints)
 
-| Command | Purpose |
-|---------|---------|
-| `research token screener` | Token list + price + netflow |
-| `research smart-money dex-trades` | Individual SM wallet trades |
-| `research smart-money holdings` | SM positions + 24h change |
-| `research smart-money netflow` | SM net flow (radar) |
-| `research token flow-intelligence` | Flow by wallet label |
-| `research token who-bought-sold` | Named buyers/sellers |
-| `research token indicators` | Nansen Score |
-| `research profiler labels` | Wallet labels |
-| `research profiler pnl-summary` | Wallet PnL history |
+| Command | Purpose | Active in Prod |
+|---------|---------|:--------------:|
+| `research token screener` | Token list + price + netflow | **YES** (CLI enrichment) |
+| `research smart-money netflow` | SM net flow per token | **YES** (CLI enrichment) |
+| `research smart-money dex-trades` | Individual SM wallet trades | CLI scan mode |
+| `research smart-money holdings` | SM positions + 24h change | CLI scan mode |
+| `research token flow-intelligence` | Flow by wallet label | Deep dive |
+| `research token who-bought-sold` | Named buyers/sellers | Deep dive |
+| `research token indicators` | Nansen Score | Deep dive |
+| `research profiler labels` | Wallet labels | Deep dive |
+| `research profiler pnl-summary` | Wallet PnL history | Deep dive |
 
 ## Scoring Algorithm
 
@@ -232,7 +253,7 @@ pytest tests/ api/tests/ -v
 - **8** blockchain chains scanned every 5 minutes
 - **9** Nansen API endpoints integrated (CLI + MCP)
 - **5** dashboard pages with responsive mobile layouts
-- **0** API credits consumed in production (MCP general_search mode)
+- **~288** API credits/day in production (CLI enrichment on ETH/BNB every 30min)
 
 ## License
 

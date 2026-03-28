@@ -36,6 +36,7 @@ export function MetricCards({ summary, backtest, avgAlpha }: MetricCardsProps) {
       <Metric label="Best" value={backtest.total_signals > 0 ? `${backtest.best_return > 0 ? "+" : ""}${backtest.best_return}%` : "---"} color="text-bullish" glow="glow-green" />
       <Metric label="Worst" value={backtest.total_signals > 0 ? `${backtest.worst_return}%` : "---"} color="text-bearish" glow="glow-red" />
       <Metric label="HIGH Conf" value={summary.confidence_high} color="text-bullish" />
+      <Metric label="CLI Enriched" value={summary.cli_enriched_count ?? 0} color="text-secondary" />
       <Metric label="Avg Alpha" value={avgAlpha} color="text-accent" glow="glow-orange" />
       <Metric label="ACC / DIS" value={`${summary.accumulation} / ${summary.distribution}`} />
     </div>

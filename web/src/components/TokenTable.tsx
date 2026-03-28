@@ -99,6 +99,11 @@ function TokenCard({ t, sparkData }: { t: Token; sparkData?: number[] }) {
           </Link>
           <StarButton address={t.token_address} />
           {t.is_new && <span className="text-xs bg-bearish text-white px-1 rounded">NEW</span>}
+          {t.signal_source === "nansen_cli" ? (
+            <span className="text-xs bg-bullish text-bg px-1 rounded font-bold">CLI</span>
+          ) : (
+            <span className="text-xs bg-border text-muted px-1 rounded">VP</span>
+          )}
           <span className="text-muted text-xs font-mono">{t.chain.toUpperCase()}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -240,6 +245,11 @@ export function TokenTable({ results, sparklines }: TokenTableProps) {
                           </Link>
                           <span className="ml-1"><StarButton address={t.token_address} /></span>
                           {t.is_new && <span className="ml-1 text-xs bg-bearish text-white px-1 rounded">NEW</span>}
+                          {t.signal_source === "nansen_cli" ? (
+                            <span className="ml-1 text-xs bg-bullish text-bg px-1 rounded font-bold">CLI</span>
+                          ) : (
+                            <span className="ml-1 text-xs bg-border text-muted px-1 rounded">VP</span>
+                          )}
                         </td>
                         <td className="py-2 px-2 text-muted">{t.chain}</td>
                         <td className="py-2 px-2 text-center">
