@@ -14,7 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ /app/src/
 COPY api/ /app/api/
+RUN chmod +x /app/api/entrypoint.sh
 
 ENV PYTHONPATH=/app/src:/app
 
+ENTRYPOINT ["/app/api/entrypoint.sh"]
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8010"]
