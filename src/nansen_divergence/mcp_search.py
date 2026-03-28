@@ -7,9 +7,7 @@ Uses the MCP general_search tool (which bypasses credit restrictions) to:
 4. Generate full scan data compatible with the dashboard pipeline
 """
 
-import hashlib
 import json
-import math
 import os
 import re
 import sqlite3
@@ -379,58 +377,114 @@ def discover_all_tokens(
 
 
 # ---------------------------------------------------------------------------
-# Synthetic signal generation
+# Volume-based SM proxy signals
 # ---------------------------------------------------------------------------
 
-def _generate_signals(token: dict, hour_seed: int) -> dict:
-    """Generate deterministic synthetic SM signals for a token."""
-    addr = token.get("token_address", "")
+def _get_volume_history(conn: sqlite3.Connection, token_address: str, hours: int = 72) -> list[float]:
+    """Get recent volume readings for relative volume calculation."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    rows = conn.execute(
+        "SELECT volume_24h FROM price_history WHERE token_address=? AND timestamp > ? ORDER BY timestamp",
+        (token_address, cutoff),
+    ).fetchall()
+    return [r[0] for r in rows if r[0] > 0]
+
+
+def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None = None) -> dict:
+    """Derive SM proxy signals from volume and price data.
+
+    Volume-based quant analysis (no synthetic/fake data):
+    - Volume/MCap ratio as institutional activity proxy
+    - Price-volume divergence for accumulation/distribution detection
+    - Volume-derived estimated whale count
+    - Directional pressure from price action + volume magnitude
+    - Relative volume vs recent history for anomaly detection
+    """
     vol = token.get("volume_24h", 0)
-    mcap = token.get("market_cap", 0) or max(vol * 20, 100_000)
     price_chg = token.get("price_change", 0)
 
-    # Deterministic hash-based random
-    def _hash_float(prefix: str) -> float:
-        h = hashlib.md5(f"{prefix}{addr}{hour_seed}".encode()).hexdigest()
-        return int(h[:8], 16) / 0xFFFFFFFF
+    # Market cap: use real if available, else estimate from volume
+    mcap = token.get("market_cap", 0) or max(vol * 20, 100_000)
 
-    # Price change if none exists
-    if price_chg == 0:
-        raw = _hash_float("price")
-        price_chg = (raw - 0.5) * 0.4  # -20% to +20%
+    # --- Volume/MCap ratio (institutional activity proxy) ---
+    vol_mcap_ratio = vol / max(mcap, 1)
 
-    # Net flow from volume (correlated with volume magnitude)
-    flow_raw = _hash_float("flow")
-    netflow = (flow_raw - 0.45) * vol * 0.3  # Slight buy bias
+    # --- Relative volume (compare to recent history) ---
+    rel_vol_multiplier = 1.0
+    if db is not None:
+        vol_history = _get_volume_history(db, token.get("token_address", ""))
+        if len(vol_history) >= 3:
+            avg_vol = sum(vol_history) / len(vol_history)
+            if avg_vol > 0:
+                rel_vol_multiplier = vol / avg_vol  # >1 = above average
 
-    # Trader count (1-15 based on volume)
-    tc_raw = _hash_float("tc")
-    if vol > 1_000_000:
-        trader_count = max(3, int(tc_raw * 15))
-    elif vol > 100_000:
-        trader_count = max(1, int(tc_raw * 10))
-    elif vol > 10_000:
-        trader_count = max(1, int(tc_raw * 6))
+    # --- Activity classification ---
+    # High vol/mcap (>3%) OR relative volume spike (>1.5x) = unusual activity
+    is_active = vol_mcap_ratio > 0.03 or rel_vol_multiplier > 1.5
+    activity_score = min(vol_mcap_ratio / 0.20, 1.0)  # Normalized 0-1
+
+    # --- Estimated whale count ---
+    # Institutional trade size scales with market cap
+    if mcap > 500_000_000:
+        avg_trade = 500_000
+    elif mcap > 50_000_000:
+        avg_trade = 100_000
+    elif mcap > 1_000_000:
+        avg_trade = 25_000
     else:
-        trader_count = 0
+        avg_trade = 10_000
 
-    # Holdings change (correlated with netflow)
-    hc_raw = _hash_float("hc")
-    holdings_change = netflow * hc_raw * 0.5 if abs(netflow) > 1000 else 0
+    whale_count = min(int(vol / avg_trade), 50) if vol > avg_trade else 0
 
-    # Buy/sell split
-    abs_nf = abs(netflow)
-    if netflow > 0:
-        buy_vol = abs_nf * 0.7
-        sell_vol = abs_nf * 0.3
+    # --- Directional flow from volume + price action ---
+    if is_active and price_chg != 0:
+        # High activity: derive direction from price-volume relationship
+        vol_factor = activity_score * rel_vol_multiplier
+        price_intensity = min(abs(price_chg) * 5, 1.0)
+
+        if price_chg < 0:
+            # Volume into price weakness → buying pressure (accumulation)
+            net_flow = vol * vol_factor * price_intensity * 0.3
+        else:
+            # Volume into price strength → selling pressure (distribution)
+            net_flow = -vol * vol_factor * price_intensity * 0.2
+    elif is_active:
+        # High activity, flat price → slight buy bias
+        net_flow = vol * activity_score * 0.05
     else:
-        buy_vol = abs_nf * 0.3
-        sell_vol = abs_nf * 0.7
+        # Low activity: trend-following (weak signal)
+        if price_chg > 0:
+            net_flow = vol * 0.02  # small positive (markup)
+        elif price_chg < 0:
+            net_flow = -vol * 0.02  # small negative (markdown)
+        else:
+            net_flow = 0
 
-    # Score
+    # --- Buy/sell split from price action ---
+    if price_chg < -0.01:
+        # Price falling: more buy volume (accumulation pressure)
+        buy_pct = 0.55 + min(abs(price_chg) * 2, 0.25)
+    elif price_chg > 0.01:
+        # Price rising: more sell volume (profit-taking)
+        buy_pct = 0.45 - min(abs(price_chg) * 2, 0.20)
+    else:
+        buy_pct = 0.50
+
+    buy_vol = vol * buy_pct
+    sell_vol = vol * (1 - buy_pct)
+
+    # --- Holdings change proxy ---
+    # High activity with directional flow implies position changes
+    if vol_mcap_ratio > 0.03 and abs(net_flow) > 0:
+        holdings_change = net_flow * 0.3
+    else:
+        holdings_change = 0
+
+    # --- Score ---
     strength, phase, confidence = score_divergence(
-        netflow, price_chg, max(mcap, 1),
-        trader_count=trader_count,
+        net_flow, price_chg, max(mcap, 1),
+        trader_count=whale_count,
         holdings_change=holdings_change,
     )
 
@@ -438,16 +492,19 @@ def _generate_signals(token: dict, hour_seed: int) -> dict:
         "price_change": round(price_chg, 4),
         "market_cap": round(mcap),
         "market_cap_usd": round(mcap),
-        "sm_net_flow": round(netflow, 2),
-        "sm_trader_count": trader_count,
+        "sm_net_flow": round(net_flow, 2),
+        "sm_trader_count": whale_count,
         "sm_buy_volume": round(buy_vol, 2),
         "sm_sell_volume": round(sell_vol, 2),
         "sm_holdings_change": round(holdings_change, 2),
-        "market_netflow": round(netflow, 2),
+        "market_netflow": round(net_flow, 2),
+        "vol_mcap_ratio": round(vol_mcap_ratio, 4),
+        "rel_vol_multiplier": round(rel_vol_multiplier, 2),
         "divergence_strength": strength,
         "phase": phase,
         "confidence": confidence,
         "alpha_score": alpha_score(strength),
+        "signal_source": "volume_proxy",
     }
 
 
@@ -513,8 +570,8 @@ def run_mcp_search_scan(
         if real_change is not None:
             entry["price_change"] = round(real_change, 4)
 
-        # Generate synthetic SM signals
-        signals = _generate_signals(entry, hour_seed)
+        # Generate volume-based SM proxy signals
+        signals = _generate_signals(entry, hour_seed, db=db)
         entry.update(signals)
 
         # If we had a real price change, override
@@ -564,6 +621,10 @@ def run_mcp_search_scan(
     med = sum(1 for r in results if r.get("confidence") == "MEDIUM")
     low = sum(1 for r in results if r.get("confidence") == "LOW")
 
+    # Volume activity stats
+    high_activity = [r for r in results if r.get("vol_mcap_ratio", 0) > 0.05]
+    vol_spikes = [r for r in results if r.get("rel_vol_multiplier", 1.0) > 1.5]
+
     summary = {
         "total_tokens": len(results),
         "with_sm_data": len([r for r in results if r.get("sm_trader_count", 0) > 0]),
@@ -578,23 +639,22 @@ def run_mcp_search_scan(
         "confidence_medium": med,
         "confidence_low": low,
         "chains_scanned": len(active_chains),
-        "data_source": "mcp_general_search",
+        "high_vol_activity": len(high_activity),
+        "volume_spikes": len(vol_spikes),
+        "data_source": "volume_proxy",
+        "methodology": "Volume/MCap ratio + price-volume divergence analysis",
     }
 
-    # 8. Backtest stats (synthetic but realistic)
-    h = hashlib.md5(f"backtest{hour_seed}".encode()).hexdigest()
-    rng_val = int(h[:8], 16) / 0xFFFFFFFF
-    total_sig = 40 + int(rng_val * 40)
-    win_rate = 58 + rng_val * 14
-    wins = round(total_sig * win_rate / 100)
+    # Backtest placeholder (real backtesting requires price history accumulation)
     backtest = {
-        "total_signals": total_sig,
-        "wins": wins,
-        "losses": total_sig - wins,
-        "win_rate": round(win_rate, 2),
-        "avg_return": round(5 + rng_val * 10, 1),
-        "best_return": round(25 + rng_val * 25, 1),
-        "worst_return": round(-(8 + rng_val * 12), 1),
+        "total_signals": len(divergent),
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 0.0,
+        "avg_return": 0.0,
+        "best_return": 0.0,
+        "worst_return": 0.0,
+        "note": "Accumulating price history for real backtesting",
     }
 
     return {

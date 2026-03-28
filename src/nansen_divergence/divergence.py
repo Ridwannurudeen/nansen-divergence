@@ -144,6 +144,7 @@ def generate_narrative(token: dict) -> str:
     effective_flow = flow if flow != 0 else market_nf
     abs_flow = abs(effective_flow)
     pct = abs(price_chg * 100)
+    is_volume_proxy = token.get("signal_source") == "volume_proxy"
 
     if abs_flow == 0:
         # Price-only narrative when no flow data available
@@ -165,19 +166,37 @@ def generate_narrative(token: dict) -> str:
     else:
         flow_str = f"${abs_flow:.0f}"
 
-    if has_sm:
+    if is_volume_proxy:
+        vol_ratio = token.get("vol_mcap_ratio", 0)
+        if vol_ratio > 0.10:
+            source = "Extreme volume activity"
+        elif vol_ratio > 0.05:
+            source = "High volume analysis"
+        else:
+            source = "Volume analysis"
+    elif has_sm:
         source = f"{traders} SM wallet{'s' if traders != 1 else ''}"
     else:
         source = "Market netflow"
 
-    if phase == "ACCUMULATION":
-        return f"{source} shows {flow_str} inflow into {symbol} while price dropped {pct:.1f}% -- stealth loading"
-    elif phase == "DISTRIBUTION":
-        return f"{source} shows {flow_str} outflow from {symbol} into a {pct:.1f}% rally -- exit liquidity"
-    elif phase == "MARKUP":
-        return f"{source} shows {flow_str} inflow into {symbol} confirming {pct:.1f}% uptrend"
-    elif phase == "MARKDOWN":
-        return f"{source} shows {flow_str} outflow from {symbol} accelerating {pct:.1f}% decline"
+    if is_volume_proxy:
+        if phase == "ACCUMULATION":
+            return f"{source}: {flow_str} buy pressure into {symbol} despite {pct:.1f}% price drop — accumulation pattern"
+        elif phase == "DISTRIBUTION":
+            return f"{source}: {flow_str} sell pressure from {symbol} into {pct:.1f}% rally — distribution pattern"
+        elif phase == "MARKUP":
+            return f"{source}: {flow_str} net buying in {symbol} confirming {pct:.1f}% uptrend"
+        elif phase == "MARKDOWN":
+            return f"{source}: {flow_str} net selling in {symbol} accelerating {pct:.1f}% decline"
+    else:
+        if phase == "ACCUMULATION":
+            return f"{source} shows {flow_str} inflow into {symbol} while price dropped {pct:.1f}% -- stealth loading"
+        elif phase == "DISTRIBUTION":
+            return f"{source} shows {flow_str} outflow from {symbol} into a {pct:.1f}% rally -- exit liquidity"
+        elif phase == "MARKUP":
+            return f"{source} shows {flow_str} inflow into {symbol} confirming {pct:.1f}% uptrend"
+        elif phase == "MARKDOWN":
+            return f"{source} shows {flow_str} outflow from {symbol} accelerating {pct:.1f}% decline"
     return ""
 
 
