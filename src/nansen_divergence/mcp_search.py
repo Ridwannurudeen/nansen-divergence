@@ -404,8 +404,21 @@ def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None
     vol = token.get("volume_24h", 0)
     price_chg = token.get("price_change", 0)
 
-    # Market cap: use real if available, else estimate from volume
-    mcap = token.get("market_cap", 0) or max(vol * 20, 100_000)
+    # Market cap: use real if available, else estimate from volume tier
+    mcap = token.get("market_cap", 0)
+    if not mcap and vol > 0:
+        # Variable multiplier by volume tier (realistic vol/mcap ratios)
+        if vol > 100_000_000:      # Blue chip (BTC, ETH, SOL)
+            mcap = vol * 100       # ~1% vol/mcap
+        elif vol > 10_000_000:     # Large cap
+            mcap = vol * 50        # ~2% vol/mcap
+        elif vol > 1_000_000:      # Mid cap
+            mcap = vol * 25        # ~4% vol/mcap
+        elif vol > 100_000:        # Small cap
+            mcap = vol * 12        # ~8% vol/mcap
+        else:                      # Micro cap
+            mcap = vol * 5         # ~20% vol/mcap
+    mcap = max(mcap, 100_000)
 
     # --- Volume/MCap ratio (institutional activity proxy) ---
     vol_mcap_ratio = vol / max(mcap, 1)
