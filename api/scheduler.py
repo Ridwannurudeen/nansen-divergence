@@ -5,6 +5,7 @@ import os
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
 logger = logging.getLogger("nansen.scheduler")
 
 DEFAULT_CHAINS = ["ethereum", "bnb", "solana", "base", "arbitrum"]
