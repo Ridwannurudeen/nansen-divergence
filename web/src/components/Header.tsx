@@ -30,7 +30,7 @@ export function Header({ timestamp }: HeaderProps) {
     <header className="flex items-center justify-between py-4">
       <div>
         <h1 className="text-xl font-mono font-bold text-accent glow-orange">SMART MONEY DIVERGENCE</h1>
-        <p className="text-xs text-muted font-mono">Multi-chain Wyckoff phase detection via Nansen SM data</p>
+        <p className="text-xs text-muted font-mono">Multi-chain Wyckoff phase detection via volume proxy analysis</p>
       </div>
       <div className="text-right text-xs text-muted font-mono">
         <div className="flex items-center gap-2 justify-end">

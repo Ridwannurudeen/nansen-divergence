@@ -1,12 +1,19 @@
 # nansen-divergence v5.0
 
-**[Live Dashboard](https://nansen.gudman.xyz)** | Multi-chain smart money divergence scanner with Wyckoff phase classification, Next.js trading terminal, signal backtesting, and Alpha Score ranking.
+[![CI](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml/badge.svg)](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Live Demo](https://img.shields.io/badge/demo-nansen.gudman.xyz-orange)](https://nansen.gudman.xyz)
 
-Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + REST API. Submitted for the **Nansen CLI Hackathon**.
+**[Live Dashboard](https://nansen.gudman.xyz)** | Multi-chain divergence scanner with volume proxy analysis, Wyckoff phase classification, signal backtesting, and Alpha Score ranking.
+
+Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + MCP. Submitted for the **Nansen CLI Hackathon (Week 2)**.
+
+> **Hackathon context**: This project extends the Nansen CLI into a full trading intelligence platform. It discovers tokens via Nansen's MCP `general_search` (zero credits), derives institutional activity signals from volume/price data, classifies Wyckoff phases, and tracks signal outcomes over time — all self-hosted with a real-time Next.js dashboard.
 
 ## What It Does
 
-Scans **9 blockchains** every 30 minutes and classifies tokens into **Wyckoff market phases** based on the divergence between **real smart money activity** and price movement:
+Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff market phases** based on the divergence between **volume-derived activity signals** and price movement:
 
 | Phase | SM Flow | Price | Signal |
 |-------|---------|-------|--------|
@@ -18,74 +25,101 @@ Scans **9 blockchains** every 30 minutes and classifies tokens into **Wyckoff ma
 ## Architecture
 
 ```
-                    Nansen CLI / REST API
-                           |
-              ┌────────────┼────────────┐
-              v            v            v
-         Token         SM Dex       SM Holdings
-        Screener       Trades       + Netflow
-              └────────────┼────────────┘
-                           v
-                  ┌─────────────────┐
-                  │  Divergence     │
-                  │  Engine         │
-                  │  (Python)       │
-                  │                 │
-                  │  Score → Phase  │
-                  │  → Confidence   │
-                  │  → Narrative    │
-                  └────────┬────────┘
-                           │
-              ┌────────────┼────────────┐
-              v            v            v
-           CLI          FastAPI       Next.js
-          Output        (8010)        Dashboard
-                           │          (3010)
-                           └─────┬─────┘
-                                 v
-                          Docker Compose
-                          + nginx reverse proxy
-                                 │
-                                 v
-                        https://nansen.gudman.xyz
+                    Nansen MCP (general_search)
+                          0 credits
+                              |
+                    ┌─────────┼─────────┐
+                    v         v         v
+               Token       Price      Entity
+              Discovery   Snapshots   Sectors
+                    └─────────┼─────────┘
+                              v
+                  ┌───────────────────────┐
+                  │    Volume Proxy        │
+                  │    Engine (Python)     │
+                  │                       │
+                  │  Vol/MCap → Activity  │
+                  │  RelVol → Anomaly     │
+                  │  Divergence → Phase   │
+                  │  Alpha Score (0-100)  │
+                  └───────────┬───────────┘
+                              │
+                    ┌─────────┼─────────┐
+                    v         v         v
+                 CLI       FastAPI    Next.js
+                Output     (8010)    Dashboard
+                              │       (3010)
+                              └───┬───┘
+                                  v
+                  Signal History (SQLite)
+                  + Outcome Backtesting
+                                  │
+                                  v
+                           Docker Compose
+                           + nginx reverse proxy
+                                  │
+                                  v
+                         https://nansen.gudman.xyz
 ```
 
 ## Dashboard Pages
 
 | Page | What It Shows |
 |------|---------------|
-| **Dashboard** | Heat map, signal feed, metric cards, full token table with Alpha Score bars |
-| **Radar** | Pre-breakout tokens — SM-only activity not yet in mainstream screeners |
-| **Performance** | Win/loss donut, signal timeline scatter, outcome tracking over 30 days |
+| **Dashboard** | Heat map, signal feed, metric cards, token watchlist, full token table with Alpha Score bars |
+| **Radar** | High-activity divergent tokens — volume anomalies before the crowd |
+| **Performance** | Win/loss donut, signal timeline scatter, outcome backtesting over 30 days |
 | **Flows** | Chain momentum chart, per-chain breakdown cards, sector rotation table |
 | **Token Deep Dive** | Per-token flow intelligence, top buyers/sellers, Nansen Score, wallet profiles |
 
 ## Features
 
-**Data Pipeline (4 sources per chain)**
-- Token screener (price, market cap, volume, netflow)
-- SM dex-trades (individual wallet trades aggregated per token)
-- SM holdings (positions + 24h balance changes)
-- SM netflow (radar tokens outside the screener)
+**Volume Proxy Pipeline (0 credits)**
+- MCP `general_search` discovers 100+ tokens across 8 chains
+- SQLite price history tracks real price changes over time
+- Vol/MCap ratio + relative volume → institutional activity proxy
+- Price-volume divergence → accumulation/distribution detection
+- Whale count estimation from volume / avg institutional trade size
 
 **Divergence Engine**
 - Multi-factor Alpha Score (0-100): flow magnitude (40%), price movement (25%), wallet diversity (20%), holdings conviction (15%)
 - Log-scaled normalization prevents large-cap dominance
 - Confidence tiers: HIGH / MEDIUM / LOW
-- Narrative generation: "5 SM wallets bought $500K of AAVE while price dropped 8.0% -- stealth loading"
+- Narrative generation from volume signals and price action
+
+**Signal Backtesting**
+- Every scan persisted to SQLite signal history
+- Past ACCUMULATION/DISTRIBUTION signals validated against current prices
+- Win/loss tracking, return distributions, performance dashboards
+- Zero extra API calls — uses stored vs current price comparison
 
 **CLI**
-- 9-chain scan with Wyckoff classification
+- 8-chain scan with Wyckoff classification
 - Deep dive per token (flow intelligence, buyers/sellers, wallet profiles)
 - HTML reports, JSON output, Telegram alerts, watch mode
 - Signal history with SQLite persistence and outcome validation
 
 **Dashboard (Next.js)**
 - Terminal-style dark UI (JetBrains Mono, orange accent)
+- Token watchlist with localStorage persistence
 - Recharts visualizations (treemap, bar charts, pie, scatter)
 - Responsive mobile-first design with card layouts
 - Accessible (ARIA labels, focus-visible, reduced-motion support)
 - SWR auto-refresh every 60 seconds
+
+## What Sets This Apart
+
+| Feature | Raw Nansen CLI | nansen-divergence |
+|---------|---------------|-------------------|
+| Multi-chain scanning | Manual, one chain at a time | 8 chains in one sweep |
+| Wyckoff classification | Not available | Automatic phase + confidence |
+| Alpha Score ranking | Not available | 4-factor weighted score (0-100) |
+| Signal backtesting | Not available | SQLite history + outcome tracking |
+| Volume proxy analysis | Not available | Vol/MCap + relative volume signals |
+| Token watchlist | Not available | Client-side star + persist |
+| Real-time dashboard | Not available | Next.js terminal UI, 60s refresh |
+| Zero-credit mode | N/A | MCP general_search (unlimited) |
+| Self-hosted | N/A | Docker Compose + nginx |
 
 ## Quick Start
 
@@ -185,20 +219,20 @@ pytest tests/ api/tests/ -v
 | Layer | Technology |
 |-------|-----------|
 | Engine | Python 3.12, Rich |
-| API | FastAPI, Uvicorn |
+| API | FastAPI, Uvicorn, APScheduler |
 | Dashboard | Next.js 16, React, Tailwind CSS v4, Recharts, SWR |
-| Data | Nansen CLI + REST API, SQLite (history) |
+| Data | Nansen MCP + REST API, SQLite (history + prices) |
 | Deploy | Docker Compose, nginx, Let's Encrypt |
 | CI | GitHub Actions (pytest + ruff) |
 
 ## Project Stats
 
-- **9,300+** lines of code across Python engine, FastAPI API, and Next.js dashboard
-- **165** automated tests
-- **9** blockchain chains supported
-- **9** Nansen API endpoints integrated
+- **8,800+** lines of code across Python engine, FastAPI API, and Next.js dashboard
+- **165** automated tests (divergence, history, scoring, alerts, API, reports)
+- **8** blockchain chains scanned every 5 minutes
+- **9** Nansen API endpoints integrated (CLI + MCP)
 - **5** dashboard pages with responsive mobile layouts
-- **4-source** data pipeline per chain
+- **0** API credits consumed in production (MCP general_search mode)
 
 ## License
 

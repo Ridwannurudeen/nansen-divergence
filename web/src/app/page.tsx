@@ -1,9 +1,11 @@
 "use client";
 
 import useSWR from "swr";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Star } from "lucide-react";
 import { ScanData } from "@/lib/types";
 import { fetcher } from "@/lib/api";
+import { getWatchlist } from "@/lib/watchlist";
 import { Header } from "@/components/Header";
 import { ChainPulse } from "@/components/ChainPulse";
 import { MetricCards } from "@/components/MetricCards";
@@ -82,6 +84,18 @@ export default function Home() {
     ? Math.round(filteredResults.reduce((sum, r) => sum + (r.alpha_score || 0), 0) / filteredResults.length)
     : 0;
 
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+  useEffect(() => {
+    setWatchlist(getWatchlist());
+    const handler = () => setWatchlist(getWatchlist());
+    window.addEventListener("watchlist-change", handler);
+    return () => window.removeEventListener("watchlist-change", handler);
+  }, []);
+
+  const watchedTokens = filteredResults.filter(
+    (r) => watchlist.includes(r.token_address.toLowerCase())
+  );
+
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
       <Header timestamp={data?.timestamp} />
@@ -137,6 +151,35 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {watchedTokens.length > 0 && (
+            <div className="mb-4">
+              <h2 className="font-mono font-bold text-sm text-muted mb-2 flex items-center gap-1.5">
+                <Star size={14} className="text-accent" fill="#f97316" />
+                WATCHLIST ({watchedTokens.length})
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {watchedTokens.map((t) => (
+                  <div key={`watch-${t.chain}-${t.token_address}`} className="bg-surface border border-accent/30 rounded-lg p-3 font-mono text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white font-bold">{t.token_symbol}</span>
+                      <span className="text-muted">{t.chain.toUpperCase()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={t.price_change > 0 ? "text-bullish" : "text-bearish"}>
+                        {t.price_change > 0 ? "+" : ""}{(t.price_change * 100).toFixed(1)}%
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                        t.phase === "ACCUMULATION" ? "bg-bullish/20 text-bullish" :
+                        t.phase === "DISTRIBUTION" ? "bg-bearish/20 text-bearish" :
+                        "bg-border text-muted"
+                      }`}>{t.phase}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <TokenTable results={filteredResults} sparklines={sparklineData?.sparklines} />
         </>

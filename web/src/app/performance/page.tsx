@@ -191,9 +191,13 @@ export default function PerformancePage() {
           SIGNAL PERFORMANCE
         </h1>
         <Card className="text-center py-16">
-          <p className="text-muted font-mono">No performance data available yet.</p>
-          <p className="text-muted font-mono text-sm mt-2">
-            Signal outcomes are tracked after the scanner has been running for at least a few days.
+          <p className="text-accent font-mono font-bold text-lg mb-3">Accumulating signal history...</p>
+          <p className="text-muted font-mono text-sm max-w-md mx-auto leading-relaxed">
+            The scanner saves each divergence signal and tracks price outcomes over time.
+            Performance data appears after 2+ scan cycles with overlapping tokens.
+          </p>
+          <p className="text-muted/50 font-mono text-xs mt-4">
+            Methodology: Volume/MCap ratio + price-volume divergence → Wyckoff phase → outcome tracking
           </p>
         </Card>
       </main>

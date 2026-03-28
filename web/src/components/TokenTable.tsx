@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { Token } from "@/lib/types";
 import { fmtUsd, DEXSCREENER_SLUGS, cn } from "@/lib/utils";
+import { isWatched, toggleWatchlist } from "@/lib/watchlist";
 
 const PHASE_ORDER = ["ACCUMULATION", "DISTRIBUTION", "MARKUP", "MARKDOWN"] as const;
 const PHASE_LABELS: Record<string, { label: string; color: string; desc: string; bg: string }> = {
@@ -59,6 +61,25 @@ function ConfPill({ confidence }: { confidence: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${cls}`}>{confidence}</span>;
 }
 
+function StarButton({ address }: { address: string }) {
+  const [watched, setWatched] = useState(false);
+  useEffect(() => { setWatched(isWatched(address)); }, [address]);
+  useEffect(() => {
+    const handler = () => setWatched(isWatched(address));
+    window.addEventListener("watchlist-change", handler);
+    return () => window.removeEventListener("watchlist-change", handler);
+  }, [address]);
+  return (
+    <button
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatchlist(address); }}
+      className="text-muted hover:text-accent transition-colors focus-visible:outline-accent"
+      aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
+    >
+      <Star size={14} fill={watched ? "#f97316" : "none"} stroke={watched ? "#f97316" : "currentColor"} />
+    </button>
+  );
+}
+
 /* ── Mobile card for a single token ── */
 function TokenCard({ t, sparkData }: { t: Token; sparkData?: number[] }) {
   const flow = t.sm_net_flow !== 0 ? t.sm_net_flow : t.market_netflow;
@@ -76,6 +97,7 @@ function TokenCard({ t, sparkData }: { t: Token; sparkData?: number[] }) {
           <Link href={`/token/${t.chain}/${t.token_address}`} className="text-white font-bold font-mono hover:text-accent transition-colors">
             {t.token_symbol}
           </Link>
+          <StarButton address={t.token_address} />
           {t.is_new && <span className="text-xs bg-bearish text-white px-1 rounded">NEW</span>}
           <span className="text-muted text-xs font-mono">{t.chain.toUpperCase()}</span>
         </div>
@@ -216,6 +238,7 @@ export function TokenTable({ results, sparklines }: TokenTableProps) {
                           <Link href={`/token/${t.chain}/${t.token_address}`} className="text-white font-bold hover:text-accent transition-colors focus-visible:outline-accent">
                             {t.token_symbol}
                           </Link>
+                          <span className="ml-1"><StarButton address={t.token_address} /></span>
                           {t.is_new && <span className="ml-1 text-xs bg-bearish text-white px-1 rounded">NEW</span>}
                         </td>
                         <td className="py-2 px-2 text-muted">{t.chain}</td>

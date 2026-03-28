@@ -12,7 +12,7 @@ const FEATURES = [
     icon: Radar,
     title: "Pre-Breakout Radar",
     href: "/radar",
-    desc: "SM-only tokens not yet in mainstream screener results. Catch smart money positioning before the crowd.",
+    desc: "High volume-activity tokens showing divergent signals. Catch institutional positioning before the crowd.",
   },
   {
     icon: TrendingUp,
@@ -24,7 +24,7 @@ const FEATURES = [
     icon: ArrowRightLeft,
     title: "Cross-Chain Flows",
     href: "/flows",
-    desc: "Chain momentum scores, sector rotation, and SM capital flow aggregation across 9 blockchains.",
+    desc: "Chain momentum scores, sector rotation, and volume flow aggregation across 8 blockchains.",
   },
   {
     icon: Search,
@@ -38,7 +38,7 @@ export default function About() {
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-mono font-bold text-accent glow-orange mb-2">How It Works</h1>
-      <p className="text-muted mb-8">Multi-chain smart money divergence scanner with Wyckoff phase classification</p>
+      <p className="text-muted mb-8">Multi-chain divergence scanner with volume proxy analysis and Wyckoff phase classification</p>
 
       <section className="mb-8">
         <h2 className="text-xl font-mono font-bold text-white mb-3">Wyckoff Phases</h2>
@@ -86,43 +86,63 @@ export default function About() {
         <div className="bg-surface border border-border rounded-lg p-4 font-mono text-sm space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-accent">1.</span>
-            <span className="text-muted">Token Screener</span>
+            <span className="text-muted">MCP Discovery</span>
             <span className="text-muted/50">—</span>
-            <span className="text-white">Price, market cap, volume, market netflow</span>
+            <span className="text-white">Token search across 8 chains via Nansen MCP (0 credits)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent">2.</span>
-            <span className="text-muted">SM Dex-Trades</span>
+            <span className="text-muted">Price History</span>
             <span className="text-muted/50">—</span>
-            <span className="text-white">Individual wallet trades aggregated per token</span>
+            <span className="text-white">SQLite-tracked price snapshots for real change computation</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent">3.</span>
-            <span className="text-muted">SM Holdings</span>
+            <span className="text-muted">Volume Proxy</span>
             <span className="text-muted/50">—</span>
-            <span className="text-white">Position values + 24h balance changes</span>
+            <span className="text-white">Vol/MCap ratio + relative volume → activity classification</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent">4.</span>
-            <span className="text-muted">SM Netflow</span>
+            <span className="text-muted">Divergence Engine</span>
             <span className="text-muted/50">—</span>
-            <span className="text-white">Pre-breakout radar tokens</span>
+            <span className="text-white">Price-volume divergence → Wyckoff phase + confidence</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-accent">5.</span>
-            <span className="text-muted">Deep Dive</span>
+            <span className="text-muted">Signal History</span>
             <span className="text-muted/50">—</span>
-            <span className="text-white">Flow intelligence, buyers/sellers, wallet profiles</span>
+            <span className="text-white">Outcome tracking + backtesting against price changes</span>
           </div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-mono font-bold text-white mb-3">Volume Proxy Methodology</h2>
+        <p className="text-muted leading-relaxed mb-3">
+          Instead of requiring premium smart money wallet data, the scanner derives institutional activity signals from publicly available volume and price data:
+        </p>
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <table className="w-full text-sm font-mono">
+            <thead><tr className="border-b border-border text-muted">
+              <th className="text-left p-3">Metric</th><th className="text-left p-3">Formula</th><th className="text-left p-3">What It Detects</th>
+            </tr></thead>
+            <tbody>
+              <tr className="border-b border-border/50"><td className="p-3 text-accent font-bold">Vol/MCap Ratio</td><td className="p-3 text-white">volume_24h / market_cap</td><td className="p-3 text-muted">Unusual trading activity relative to token size</td></tr>
+              <tr className="border-b border-border/50"><td className="p-3 text-accent font-bold">Relative Volume</td><td className="p-3 text-white">current_vol / avg_vol_72h</td><td className="p-3 text-muted">Volume spikes vs recent baseline</td></tr>
+              <tr className="border-b border-border/50"><td className="p-3 text-accent font-bold">Price-Vol Divergence</td><td className="p-3 text-white">high_volume + falling_price</td><td className="p-3 text-muted">Accumulation (buying into weakness)</td></tr>
+              <tr><td className="p-3 text-accent font-bold">Whale Count Est.</td><td className="p-3 text-white">volume / avg_institutional_trade</td><td className="p-3 text-muted">Estimated number of large transactions</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section>
         <h2 className="text-xl font-mono font-bold text-white mb-3">Coverage</h2>
         <p className="text-muted leading-relaxed">
-          Scans 9 blockchains (Ethereum, BNB, Solana, Base, Arbitrum, Polygon, Optimism, Avalanche, Linea)
-          using Nansen&apos;s smart money data. Results cached and auto-refreshed every 30 minutes.
-          Signal outcomes validated against current prices for backtesting.
+          Scans 8 blockchains (Ethereum, BNB, Solana, Base, Arbitrum, Polygon, Optimism, Avalanche)
+          via Nansen MCP discovery at zero credit cost. Auto-refreshed every 5 minutes.
+          Signal outcomes tracked in SQLite and validated against subsequent price movements for backtesting.
         </p>
       </section>
     </main>

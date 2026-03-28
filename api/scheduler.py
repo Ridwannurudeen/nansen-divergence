@@ -114,6 +114,13 @@ def _run_scan():
 def _run_mcp_refresh():
     """Run a zero-credit scan using MCP general_search."""
     from api.cache import save_cached_scan
+    from nansen_divergence.history import (
+        backtest_stats,
+        detect_new_tokens,
+        init_db,
+        save_scan,
+        validate_signals,
+    )
 
     logger.info("Starting MCP search refresh (0 credits)")
     try:
@@ -121,6 +128,28 @@ def _run_mcp_refresh():
 
         scan_data = run_mcp_search_scan(max_tokens=150)
         if scan_data.get("results"):
+            results = scan_data["results"]
+            chains = scan_data.get("chains", [])
+
+            # Persist signal history to SQLite for backtesting
+            try:
+                db_conn = init_db()
+                new_addrs = detect_new_tokens(results, conn=db_conn)
+                for token in results:
+                    if token.get("token_address", "").lower() in new_addrs:
+                        token["is_new"] = True
+                save_scan(results, chains, "24h", conn=db_conn)
+                validations = validate_signals(results, lookback_days=7, conn=db_conn)
+                bstats = backtest_stats(validations)
+                db_conn.close()
+            except Exception as e:
+                logger.warning(f"History error: {e}")
+                validations = []
+                bstats = backtest_stats([])
+
+            scan_data["validations"] = validations
+            scan_data["backtest"] = bstats
+
             save_cached_scan(scan_data)
             logger.info(
                 f"MCP refresh complete: {scan_data['summary']['total_tokens']} tokens, "
