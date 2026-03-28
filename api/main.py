@@ -15,6 +15,11 @@ from api.scheduler import start_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Wire CLI activity logging before scheduler starts
+    from api.cli_log import log_call
+    from nansen_divergence.nansen import set_log_hook
+    set_log_hook(log_call)
+
     scheduler = start_scheduler()
     yield
     scheduler.shutdown()
@@ -243,6 +248,20 @@ def history_streaks(days: int = 14):
     from nansen_divergence.history import get_signal_streaks
     streaks = get_signal_streaks(days=days)
     return {"streaks": streaks}
+
+
+@app.get("/api/cli/activity")
+def cli_activity(limit: int = 50):
+    """Return recent CLI/API call activity log."""
+    from api.cli_log import get_activity
+    return {"activity": get_activity(limit)}
+
+
+@app.get("/api/cli/stats")
+def cli_stats():
+    """Return aggregate CLI usage stats."""
+    from api.cli_log import get_stats
+    return get_stats()
 
 
 @app.get("/api/history/outcomes")

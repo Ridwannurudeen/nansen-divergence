@@ -28,6 +28,28 @@ class InsufficientCreditsError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Activity logging hook (set by api/cli_log.py at startup)
+# ---------------------------------------------------------------------------
+
+_log_hook = None  # type: ignore
+
+
+def set_log_hook(hook):
+    """Set a callback for logging CLI/API calls. hook(command, success, token_count, source)."""
+    global _log_hook
+    _log_hook = hook
+
+
+def _notify_log(command: str, success: bool, token_count: int = 0, source: str = "cli"):
+    """Notify the log hook if set."""
+    if _log_hook:
+        try:
+            _log_hook(command, success, token_count, source)
+        except Exception:
+            pass  # Never let logging break the pipeline
+
+
+# ---------------------------------------------------------------------------
 # REST API helpers
 # ---------------------------------------------------------------------------
 
@@ -45,6 +67,9 @@ def _api_post(endpoint: str, payload: dict) -> dict:
     if not key:
         raise RuntimeError("NANSEN_API_KEY not set")
 
+    chain = payload.get("chain", "unknown")
+    cmd_desc = f"REST POST {endpoint} chain={chain}"
+
     url = f"{_API_BASE}{endpoint}"
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
@@ -55,15 +80,19 @@ def _api_post(endpoint: str, payload: dict) -> dict:
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode())
+            parsed = json.loads(resp.read().decode())
+            _notify_log(cmd_desc, True, source="rest")
+            return parsed
     except urllib.error.HTTPError as exc:
         body = exc.read().decode(errors="replace") if exc.fp else ""
         print(f"Nansen API error {exc.code} on {endpoint}: {body}", file=sys.stderr)
+        _notify_log(cmd_desc, False, source="rest")
         if exc.code == 403 and "Insufficient credits" in body:
             raise InsufficientCreditsError(f"No credits left for {endpoint}")
         return {}
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         print(f"Nansen API request failed for {endpoint}: {exc}", file=sys.stderr)
+        _notify_log(cmd_desc, False, source="rest")
         return {}
 
 
@@ -91,30 +120,40 @@ _NANSEN_BIN = _find_nansen()
 def _run(args: list[str]) -> dict:
     """Execute a nansen CLI command and return parsed JSON."""
     cmd = [_NANSEN_BIN] + args
+    cmd_str = " ".join(args)
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=60, shell=(os.name == "nt"), encoding="utf-8", errors="replace"
         )
     except FileNotFoundError:
+        _notify_log(f"nansen {cmd_str}", False, source="cli")
         print("Error: 'nansen' CLI not found. Install it: npm i -g @anthropic-ai/nansen", file=sys.stderr)
         sys.exit(1)
     except subprocess.TimeoutExpired:
+        _notify_log(f"nansen {cmd_str}", False, source="cli")
         print(f"Error: command timed out: {' '.join(cmd)}", file=sys.stderr)
         return {"success": False, "data": {"data": []}}
 
     if result.returncode != 0:
         print(f"Error running: {' '.join(cmd)}\n{result.stderr}", file=sys.stderr)
         if "Insufficient credits" in (result.stderr or "") or "Insufficient credits" in (result.stdout or ""):
+            _notify_log(f"nansen {cmd_str}", False, source="cli")
             raise InsufficientCreditsError(f"No credits left: {' '.join(cmd)}")
+        _notify_log(f"nansen {cmd_str}", False, source="cli")
         return {"success": False, "data": {"data": []}}
 
     if not result.stdout:
+        _notify_log(f"nansen {cmd_str}", False, source="cli")
         print(f"Error: empty output from: {' '.join(cmd)}", file=sys.stderr)
         return {"success": False, "data": {"data": []}}
 
     try:
-        return json.loads(result.stdout)
+        parsed = json.loads(result.stdout)
+        token_count = len(parsed.get("data", {}).get("data", [])) if parsed.get("success") else 0
+        _notify_log(f"nansen {cmd_str}", parsed.get("success", False), token_count, source="cli")
+        return parsed
     except (json.JSONDecodeError, TypeError):
+        _notify_log(f"nansen {cmd_str}", False, source="cli")
         print(f"Error: non-JSON output from: {' '.join(cmd)}", file=sys.stderr)
         return {"success": False, "data": {"data": []}}
 

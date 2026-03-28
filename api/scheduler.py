@@ -211,6 +211,56 @@ def _enrich_with_cli(results: list[dict]) -> list[dict]:
     return results
 
 
+def _prefetch_deep_dives(results: list[dict], scan_data: dict):
+    """Pre-fetch deep dive data for top divergent tokens on enriched chains.
+
+    Uses flow_intelligence + who_bought_sold + token_indicators (3 endpoints).
+    Stores results in scan_data["prefetched_dives"] for dashboard display.
+    """
+    from nansen_divergence.nansen import InsufficientCreditsError
+
+    # Pick top 3 tokens from CLI-enriched chains
+    candidates = [
+        r for r in results
+        if r.get("chain", "").lower() in [c.strip().lower() for c in CLI_ENRICH_CHAINS]
+        and r.get("divergence_strength", 0) > 0
+    ]
+    candidates.sort(key=lambda x: x.get("divergence_strength", 0), reverse=True)
+    top_tokens = candidates[:3]
+
+    if not top_tokens:
+        logger.info("No candidates for pre-built deep dives")
+        return
+
+    dives = []
+    for token in top_tokens:
+        chain = token["chain"]
+        addr = token["token_address"]
+        symbol = token.get("token_symbol", "???")
+        logger.info(f"Pre-fetching deep dive: {symbol} on {chain}")
+        dive = {"chain": chain, "token_address": addr, "token_symbol": symbol}
+        try:
+            from nansen_divergence import nansen
+            dive["flow_intelligence"] = nansen.flow_intelligence(chain, addr, days=7)
+            dive["who_bought_sold"] = nansen.who_bought_sold(chain, addr, days=7)
+            dive["indicators"] = nansen.token_indicators(chain, addr)
+            dive["success"] = True
+            dives.append(dive)
+            logger.info(f"Deep dive complete: {symbol}")
+        except InsufficientCreditsError:
+            logger.warning(f"Deep dive credits exhausted at {symbol} — stopping")
+            dive["success"] = False
+            dives.append(dive)
+            break
+        except Exception as e:
+            logger.warning(f"Deep dive failed for {symbol}: {e}")
+            dive["success"] = False
+            dives.append(dive)
+
+    scan_data["prefetched_dives"] = dives
+    logger.info(f"Pre-built deep dives: {len([d for d in dives if d.get('success')])} of {len(dives)} successful")
+
+
 def _run_mcp_refresh():
     """Run a zero-credit scan using MCP general_search."""
     from api.cache import save_cached_scan
@@ -264,6 +314,12 @@ def _run_mcp_refresh():
                     scan_data["results"] = results
                     _last_cli_enrich = now
                     logger.info(f"CLI enrichment applied: {cli_count} tokens enriched")
+
+                    # Pre-fetch deep dives for top tokens (uses 3 more endpoints)
+                    try:
+                        _prefetch_deep_dives(results, scan_data)
+                    except Exception as dive_err:
+                        logger.warning(f"Pre-fetch deep dives failed: {dive_err}")
                 except Exception as e:
                     logger.warning(f"CLI enrichment failed (graceful fallback): {e}")
 

@@ -12,6 +12,7 @@ import { MetricCards } from "@/components/MetricCards";
 import { SignalFeed } from "@/components/SignalFeed";
 import { TokenTable } from "@/components/TokenTable";
 import { HeatMap } from "@/components/HeatMap";
+import { CLIActivity } from "@/components/CLIActivity";
 
 function SkeletonPulse({ className }: { className?: string }) {
   return <div className={`animate-pulse bg-surface rounded ${className}`} />;
@@ -124,6 +125,10 @@ export default function Home() {
           />
 
           <HeatMap results={filteredResults} />
+
+          <div className="py-4">
+            <CLIActivity />
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 py-4">
             <div className="lg:col-span-2">

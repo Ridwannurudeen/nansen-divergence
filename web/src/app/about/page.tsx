@@ -177,6 +177,45 @@ export default function About() {
         </div>
       </section>
 
+      <section className="mb-8">
+        <h2 className="text-xl font-mono font-bold text-white mb-3">Try It Yourself</h2>
+        <p className="text-muted leading-relaxed mb-3">
+          Install the Nansen CLI and run these commands to see the raw data this scanner uses:
+        </p>
+        <div className="bg-bg border border-border rounded-lg p-4 font-mono text-sm space-y-3">
+          <div>
+            <div className="text-muted text-xs mb-1"># Install Nansen CLI</div>
+            <code className="text-bullish">npm i -g nansen-cli && nansen login</code>
+          </div>
+          <div>
+            <div className="text-muted text-xs mb-1"># Token screener — top tokens by volume (1 credit)</div>
+            <code className="text-accent">nansen research token screener --chain ethereum --timeframe 24h</code>
+          </div>
+          <div>
+            <div className="text-muted text-xs mb-1"># Smart money net flow — where SM wallets are moving (5 credits)</div>
+            <code className="text-accent">nansen research smart-money netflow --chain ethereum</code>
+          </div>
+          <div>
+            <div className="text-muted text-xs mb-1"># SM dex trades — individual whale trades (5 credits)</div>
+            <code className="text-accent">nansen research smart-money dex-trades --chain bnb</code>
+          </div>
+          <div>
+            <div className="text-muted text-xs mb-1"># Token deep dive — flow intelligence + Nansen Score (5 credits)</div>
+            <code className="text-accent">nansen research token flow-intelligence --chain ethereum --token 0x...</code>
+          </div>
+          <div>
+            <div className="text-muted text-xs mb-1"># Wallet profiler — who is this wallet? (1 credit)</div>
+            <code className="text-accent">nansen research profiler labels --address 0x... --chain ethereum</code>
+          </div>
+        </div>
+        <p className="text-muted text-sm mt-2">
+          All 9 Nansen CLI endpoints are integrated. The scanner runs <code className="text-accent">token screener</code> +
+          <code className="text-accent">smart-money netflow</code> every 30 minutes for ETH/BNB enrichment, plus
+          <code className="text-accent">flow-intelligence</code>, <code className="text-accent">who-bought-sold</code>, and
+          <code className="text-accent">token indicators</code> for top token deep dives.
+        </p>
+      </section>
+
       <section>
         <h2 className="text-xl font-mono font-bold text-white mb-3">Coverage</h2>
         <p className="text-muted leading-relaxed">
