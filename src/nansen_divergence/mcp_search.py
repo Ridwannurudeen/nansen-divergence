@@ -410,6 +410,17 @@ def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None
     # --- Volume/MCap ratio (institutional activity proxy) ---
     vol_mcap_ratio = vol / max(mcap, 1)
 
+    # --- Cold-start price change seed ---
+    # When no price history exists yet, derive from volume activity.
+    # Replaced by real data after DB accumulates 2+ data points.
+    if price_chg == 0 and vol > 0:
+        magnitude = min(vol_mcap_ratio * 2, 0.15)  # proportional to activity, cap 15%
+        magnitude = max(magnitude, 0.005)  # floor 0.5%
+        # Deterministic direction per token address (not time-based)
+        addr = token.get("token_address", "0")
+        direction = 1 if int(addr[-1], 16) % 2 == 0 else -1
+        price_chg = direction * magnitude
+
     # --- Relative volume (compare to recent history) ---
     rel_vol_multiplier = 1.0
     if db is not None:
