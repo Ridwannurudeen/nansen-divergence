@@ -99,7 +99,7 @@ export default function Home() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
-      <Header timestamp={data?.timestamp} />
+      <Header timestamp={data?.timestamp} isDemo={data?.demo} />
 
       {isLoading && <DashboardSkeleton />}
 

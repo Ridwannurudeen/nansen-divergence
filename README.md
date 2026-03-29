@@ -11,6 +11,16 @@ Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + MCP. Sub
 
 > **Hackathon context**: This project extends the Nansen CLI into a full trading intelligence platform. It discovers tokens via Nansen's MCP `general_search` (zero credits), derives institutional activity signals from volume/price data, classifies Wyckoff phases, and tracks signal outcomes over time — all self-hosted with a real-time Next.js dashboard.
 
+## Screenshots
+
+| Dashboard | Radar |
+|:---------:|:-----:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Radar](docs/screenshots/radar.png) |
+
+| Performance | Cross-Chain Flows |
+|:-----------:|:-----------------:|
+| ![Performance](docs/screenshots/performance.png) | ![Flows](docs/screenshots/flows.png) |
+
 ## What It Does
 
 Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff market phases** based on the divergence between **volume-derived activity signals** and price movement:

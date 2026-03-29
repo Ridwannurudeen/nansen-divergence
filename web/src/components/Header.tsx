@@ -12,9 +12,10 @@ function relativeTime(ts: string): string {
 
 interface HeaderProps {
   timestamp?: string;
+  isDemo?: boolean;
 }
 
-export function Header({ timestamp }: HeaderProps) {
+export function Header({ timestamp, isDemo }: HeaderProps) {
   const [rel, setRel] = useState("");
 
   useEffect(() => {
@@ -27,7 +28,13 @@ export function Header({ timestamp }: HeaderProps) {
   const time = timestamp ? new Date(timestamp).toLocaleTimeString() : "---";
   const date = timestamp ? new Date(timestamp).toLocaleDateString() : "";
   return (
-    <header className="flex items-center justify-between py-4">
+    <header className="py-4">
+      {isDemo && (
+        <div className="bg-accent/10 border border-accent/30 text-accent font-mono text-xs px-3 py-1.5 rounded mb-3 text-center">
+          DEMO DATA — waiting for live scan. Results refresh automatically.
+        </div>
+      )}
+      <div className="flex items-center justify-between">
       <div>
         <h1 className="text-xl font-mono font-bold text-accent glow-orange">SMART MONEY DIVERGENCE</h1>
         <p className="text-xs text-muted font-mono">Multi-chain Wyckoff phase detection via volume proxy analysis</p>
@@ -39,6 +46,7 @@ export function Header({ timestamp }: HeaderProps) {
         </div>
         {rel && <div className="text-accent">{rel}</div>}
         {date && <div className="text-muted/50">{date}</div>}
+      </div>
       </div>
     </header>
   );

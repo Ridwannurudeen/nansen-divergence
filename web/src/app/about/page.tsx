@@ -29,8 +29,8 @@ const FEATURES = [
   {
     icon: Search,
     title: "Token Deep Dive",
-    href: "/",
-    desc: "Click any token for full intelligence: flow by wallet type, buyers/sellers, Nansen Score, and wallet profiles.",
+    href: "/radar",
+    desc: "Click any token in the dashboard table for full intelligence: flow by wallet type, buyers/sellers, Nansen Score, and wallet profiles.",
   },
 ];
 

@@ -65,6 +65,7 @@ export interface ScanData {
   chains: string[];
   timestamp: string;
   backtest: BacktestStats;
+  demo?: boolean;
 }
 
 export interface DeepDiveData {

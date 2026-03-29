@@ -211,6 +211,12 @@ export default function PerformancePage() {
         SIGNAL PERFORMANCE
       </h1>
 
+      {scan?.demo && (
+        <div className="bg-accent/10 border border-accent/30 text-accent font-mono text-xs px-3 py-1.5 rounded mb-4 text-center">
+          DEMO DATA — backtest stats are seeded. Live results appear after 2+ scan cycles.
+        </div>
+      )}
+
       {/* ---- Stats row ---- */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-6">
         <Card glow="green">

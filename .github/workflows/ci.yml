@@ -26,4 +26,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[test]"
-      - run: pytest tests/ -v
+      - run: pytest tests/ api/tests/ -v
