@@ -42,7 +42,7 @@ export default function About() {
 
       <section className="mb-8">
         <h2 className="text-xl font-mono font-bold text-white mb-3">Wyckoff Phases</h2>
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm font-mono">
             <thead><tr className="border-b border-border text-muted">
               <th className="text-left p-3">Phase</th><th className="p-3">SM Flow</th><th className="p-3">Price</th><th className="text-left p-3">Signal</th>
@@ -132,7 +132,7 @@ export default function About() {
           <span className="text-xs bg-bullish text-bg px-1 rounded font-bold mx-1">CLI</span> badge;
           volume-proxy tokens show a gray <span className="text-xs bg-border text-muted px-1 rounded mx-1">VP</span> badge.
         </p>
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm font-mono">
             <thead><tr className="border-b border-border text-muted">
               <th className="text-left p-3">CLI Command</th><th className="text-left p-3">Data</th><th className="text-right p-3">Credits</th>
@@ -162,7 +162,7 @@ export default function About() {
         <p className="text-muted leading-relaxed mb-3">
           Instead of requiring premium smart money wallet data, the scanner derives institutional activity signals from publicly available volume and price data:
         </p>
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm font-mono">
             <thead><tr className="border-b border-border text-muted">
               <th className="text-left p-3">Metric</th><th className="text-left p-3">Formula</th><th className="text-left p-3">What It Detects</th>

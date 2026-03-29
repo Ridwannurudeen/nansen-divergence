@@ -123,9 +123,7 @@ def _run(args: list[str]) -> dict:
     cmd = [_NANSEN_BIN] + args
     cmd_str = " ".join(args)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60, shell=(os.name == "nt"), encoding="utf-8", errors="replace"
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     except FileNotFoundError:
         _notify_log(f"nansen {cmd_str}", False, source="cli")
         print("Error: 'nansen' CLI not found. Install it: npm i -g @anthropic-ai/nansen", file=sys.stderr)

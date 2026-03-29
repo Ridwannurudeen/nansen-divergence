@@ -85,9 +85,8 @@ export default function Home() {
     ? Math.round(filteredResults.reduce((sum, r) => sum + (r.alpha_score || 0), 0) / filteredResults.length)
     : 0;
 
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [watchlist, setWatchlist] = useState<string[]>(getWatchlist);
   useEffect(() => {
-    setWatchlist(getWatchlist());
     const handler = () => setWatchlist(getWatchlist());
     window.addEventListener("watchlist-change", handler);
     return () => window.removeEventListener("watchlist-change", handler);

@@ -16,11 +16,12 @@ interface HeaderProps {
 }
 
 export function Header({ timestamp, isDemo }: HeaderProps) {
-  const [rel, setRel] = useState("");
+  const [rel, setRel] = useState(() =>
+    timestamp ? relativeTime(timestamp) : "",
+  );
 
   useEffect(() => {
     if (!timestamp) return;
-    setRel(relativeTime(timestamp));
     const iv = setInterval(() => setRel(relativeTime(timestamp)), 30000);
     return () => clearInterval(iv);
   }, [timestamp]);

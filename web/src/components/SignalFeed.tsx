@@ -1,5 +1,4 @@
 import { Token } from "@/lib/types";
-import { fmtUsd } from "@/lib/utils";
 
 const PHASE_COLORS: Record<string, string> = {
   ACCUMULATION: "border-bullish",

@@ -134,6 +134,8 @@ class TestTokenDeepDive:
 
     def test_token_deep_dive_no_key(self, client):
         """Returns 503 when the server has no NANSEN_API_KEY configured."""
+        from api.main import _rate_tracker
+        _rate_tracker.clear()
         with patch.dict(os.environ, {}, clear=False):
             # Ensure key is absent
             os.environ.pop("NANSEN_API_KEY", None)
@@ -144,6 +146,8 @@ class TestTokenDeepDive:
 
     def test_token_deep_dive_upstream_error(self, client):
         """Returns 502 when the deep_dive_token call raises an exception."""
+        from api.main import _rate_tracker
+        _rate_tracker.clear()
         with (
             patch.dict(os.environ, {"NANSEN_API_KEY": "test-key-123"}),
             patch(

@@ -51,13 +51,6 @@ const EXPLORER_LABELS: Record<string, string> = {
   linea: "LineaScan",
 };
 
-const FLOW_COLORS: Record<string, string> = {
-  whale: "#6366f1",
-  smart_trader: "#f97316",
-  exchange: "#facc15",
-  fresh_wallet: "#4ade80",
-};
-
 function truncAddr(addr: string): string {
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;

@@ -45,7 +45,7 @@ export default function RadarPage() {
     { refreshInterval: 60000 },
   );
 
-  const radar = data?.radar ?? [];
+  const radar = useMemo(() => data?.radar ?? [], [data]);
 
   const chartData = useMemo<ChartDatum[]>(() => {
     if (!radar.length) return [];

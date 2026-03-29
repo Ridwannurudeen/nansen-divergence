@@ -1,16 +1,38 @@
 """Nansen Divergence Scanner — FastAPI Backend."""
 
 import sys
+import threading
+import time as _time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.cache import get_latest_scan
 from api.scheduler import start_scheduler
+
+# Simple in-memory rate limiter for expensive endpoints
+_rate_lock = threading.Lock()
+_rate_tracker: dict[str, float] = {}
+RATE_LIMIT_SECONDS = 60  # min seconds between expensive calls per IP
+
+
+def _check_rate_limit(key: str) -> bool:
+    """Return True if rate limit exceeded."""
+    now = _time.time()
+    with _rate_lock:
+        last = _rate_tracker.get(key, 0)
+        if now - last < RATE_LIMIT_SECONDS:
+            return True
+        _rate_tracker[key] = now
+        return False
+
+
+# Thread lock for API key env mutation
+_key_lock = threading.Lock()
 
 
 @asynccontextmanager
@@ -27,14 +49,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Nansen Divergence API",
-    version="5.0.0",
+    version="5.3.0",
     description="Multi-chain smart money divergence scanner",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://nansen.gudman.xyz",
+        "http://localhost:3000",
+        "http://localhost:3010",
+    ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -81,7 +107,6 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
         raise HTTPException(status_code=401, detail="Nansen API key required. Pass X-Nansen-Key header.")
 
     import os
-    os.environ["NANSEN_API_KEY"] = x_nansen_key
 
     from api.cache import save_cached_scan
     from nansen_divergence.divergence import alpha_score
@@ -89,8 +114,16 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
     from nansen_divergence.scanner import flatten_and_rank, flatten_radar, scan_multi_chain, summarize
 
     chain_list = [c.strip() for c in chains.split(",") if c.strip()]
+    limit = min(limit, 50)  # clamp to prevent unbounded work
 
-    chain_results, chain_radar = scan_multi_chain(chain_list, timeframe="24h", limit=limit)
+    with _key_lock:
+        old_key = os.environ.get("NANSEN_API_KEY", "")
+        os.environ["NANSEN_API_KEY"] = x_nansen_key
+        try:
+            chain_results, chain_radar = scan_multi_chain(chain_list, timeframe="24h", limit=limit)
+        finally:
+            os.environ["NANSEN_API_KEY"] = old_key
+
     flat = flatten_and_rank(chain_results)
     radar = flatten_radar(chain_radar)
     summary = summarize(flat, radar)
@@ -98,13 +131,11 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
     for r in flat:
         r["alpha_score"] = alpha_score(r.get("divergence_strength", 0))
 
-    # Save to history DB
     init_db()
     save_scan(flat, chain_list, "24h")
     validations = validate_signals(flat, lookback_days=30)
     bstats = backtest_stats(validations)
 
-    # Only save to cache if we have results (don't overwrite good data with empty)
     if not flat:
         old = get_latest_scan()
         if old and old.get("results"):
@@ -124,8 +155,13 @@ def scan_on_demand(chains: str = "ethereum", limit: int = 20, x_nansen_key: str 
 
 
 @app.post("/api/scan/mcp-refresh")
-def scan_mcp_refresh(max_tokens: int = 150):
-    """Run a zero-credit scan using MCP general_search."""
+def scan_mcp_refresh(request: Request, max_tokens: int = 150):
+    """Run a zero-credit scan using MCP general_search. Rate-limited."""
+    client_ip = request.client.host if request.client else "unknown"
+    if _check_rate_limit(f"mcp-refresh:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Rate limited. Try again in 60s.")
+    max_tokens = min(max_tokens, 200)
+
     from api.cache import save_cached_scan
     from nansen_divergence.mcp_search import run_mcp_search_scan
 
@@ -141,10 +177,16 @@ def deep_dive(chain: str, token: str, x_nansen_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Nansen API key required.")
 
     import os
-    os.environ["NANSEN_API_KEY"] = x_nansen_key
 
     from nansen_divergence.deep_dive import deep_dive_token
-    data = deep_dive_token(chain, token, days=7, profile_count=3)
+
+    with _key_lock:
+        old_key = os.environ.get("NANSEN_API_KEY", "")
+        os.environ["NANSEN_API_KEY"] = x_nansen_key
+        try:
+            data = deep_dive_token(chain, token, days=7, profile_count=3)
+        finally:
+            os.environ["NANSEN_API_KEY"] = old_key
     return data
 
 
@@ -157,8 +199,11 @@ def token_history(chain: str, address: str, days: int = 30):
 
 
 @app.get("/api/token/{chain}/{address}")
-def token_deep_dive(chain: str, address: str):
-    """Deep-dive using server-side Nansen API key (no client key needed)."""
+def token_deep_dive(chain: str, address: str, request: Request):
+    """Deep-dive using server-side Nansen API key. Rate-limited to prevent credit abuse."""
+    client_ip = request.client.host if request.client else "unknown"
+    if _check_rate_limit(f"deep-dive:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Rate limited. Try again in 60s.")
     import os
     if not os.getenv("NANSEN_API_KEY"):
         raise HTTPException(status_code=503, detail="Server Nansen API key not configured.")

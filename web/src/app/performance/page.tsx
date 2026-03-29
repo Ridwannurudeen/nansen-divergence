@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { OutcomesData, ScanData, SignalOutcome } from "@/lib/types";
 import { fetcher } from "@/lib/api";
-import { fmtPrice, fmtPct, chainLabel, cn } from "@/lib/utils";
+import { fmtPrice, chainLabel, cn } from "@/lib/utils";
 import { Card, CardHeader, CardValue } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { CardSkeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
@@ -121,7 +121,7 @@ export default function PerformancePage() {
 
   /* Derive stats — prefer outcomes endpoint, fall back to scan backtest */
   const stats = outcomes?.stats ?? scan?.backtest ?? null;
-  const outcomeList = outcomes?.outcomes ?? [];
+  const outcomeList = useMemo(() => outcomes?.outcomes ?? [], [outcomes]);
 
   /* Pie data */
   const pieData = useMemo(() => {
