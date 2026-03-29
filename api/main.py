@@ -71,7 +71,7 @@ def health():
     data = get_latest_scan()
     return {
         "status": "ok",
-        "version": "5.0.0",
+        "version": "5.3.0",
         "last_scan": data.get("timestamp") if data else None,
     }
 

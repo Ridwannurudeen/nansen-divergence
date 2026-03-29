@@ -21,6 +21,10 @@ Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + MCP. Sub
 |:-----------:|:-----------------:|
 | ![Performance](docs/screenshots/performance.png) | ![Flows](docs/screenshots/flows.png) |
 
+| CLI Activity | Demo Video |
+|:------------:|:----------:|
+| ![CLI Activity](docs/screenshots/cli-activity.png) | [Watch Demo (1:53)](docs/screenshots/dashboard-demo.mp4) |
+
 ## What It Does
 
 Scans **8 blockchains** every 5 minutes and classifies tokens into **Wyckoff market phases** based on the divergence between **volume-derived activity signals** and price movement:
@@ -173,7 +177,7 @@ git clone https://github.com/Ridwannurudeen/nansen-divergence.git
 cd nansen-divergence
 pip install -e .
 
-# Full 9-chain scan
+# Full 8-chain scan
 nansen-divergence scan
 
 # Specific chains + deep dive
@@ -200,7 +204,7 @@ nansen-divergence deep --chain ethereum --token 0x7fc66500c84a76ad7e9c93437bfc5a
 ```bash
 export NANSEN_API_KEY="your-api-key"
 nansen-divergence scan --chains bnb --limit 5
-# All 9 Nansen functions auto-switch to REST API when key is set
+# Nansen functions auto-switch to REST API when key is set
 ```
 
 ### Self-Host (Docker)
@@ -214,7 +218,7 @@ docker compose up -d
 # Add nginx reverse proxy for HTTPS
 ```
 
-## Nansen CLI / API Usage (9 endpoints)
+## Nansen CLI / API Usage
 
 | Command | Purpose | Active in Prod |
 |---------|---------|:--------------:|
@@ -270,7 +274,7 @@ pytest tests/ api/tests/ -v
 - **8** blockchain chains scanned every 5 minutes
 - **9** Nansen API endpoints integrated (CLI + MCP)
 - **5** dashboard pages with responsive mobile layouts
-- **13+** verified Nansen API calls across 9 chains and 4 endpoints
+- **13+** verified Nansen API calls across 8 chains and 4 endpoints
 - **3-tier** API fallback: CLI binary → REST API → MCP (automatic)
 
 ## License
