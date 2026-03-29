@@ -71,7 +71,9 @@ def _seed_historical():
             _stats["total_credits"] += entry["credits"]
             _stats["endpoints_used"].add(entry["endpoint"])
             _stats["calls_success"] += 1
-            _stats["last_call_at"] = entry["timestamp"]
+        # Set last_call_at to the most recent entry (last in chronological order)
+        if _HISTORICAL_CALLS:
+            _stats["last_call_at"] = _HISTORICAL_CALLS[-1]["timestamp"]
 
 
 _seed_historical()

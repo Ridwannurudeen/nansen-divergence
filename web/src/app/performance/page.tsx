@@ -70,7 +70,7 @@ function ScatterTooltip({
       <p className="text-muted">{d.chain} &middot; {d.phase}</p>
       <p className={d.price_change_pct >= 0 ? "text-bullish" : "text-bearish"}>
         {d.price_change_pct >= 0 ? "+" : ""}
-        {(d.price_change_pct * 100).toFixed(1)}% &middot; {d.days_ago}d ago
+        {d.price_change_pct.toFixed(1)}% &middot; {d.days_ago}d ago
       </p>
     </div>
   );
@@ -230,18 +230,18 @@ export default function PerformancePage() {
           <CardValue
             className={stats.avg_return >= 0 ? "text-bullish" : "text-bearish"}
           >
-            {fmtPct(stats.avg_return)}
+            {stats.avg_return >= 0 ? "+" : ""}{stats.avg_return.toFixed(1)}%
           </CardValue>
         </Card>
 
         <Card>
           <CardHeader>Best Return</CardHeader>
-          <CardValue className="text-bullish">{fmtPct(stats.best_return)}</CardValue>
+          <CardValue className="text-bullish">+{stats.best_return.toFixed(1)}%</CardValue>
         </Card>
 
         <Card>
           <CardHeader>Worst Return</CardHeader>
-          <CardValue className="text-bearish">{fmtPct(stats.worst_return)}</CardValue>
+          <CardValue className="text-bearish">{stats.worst_return.toFixed(1)}%</CardValue>
         </Card>
       </div>
 
@@ -313,7 +313,7 @@ export default function PerformancePage() {
                 dataKey="price_change_pct"
                 name="Return"
                 type="number"
-                tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                 tick={{ fill: "#737373", fontSize: 11, fontFamily: "monospace" }}
                 axisLine={false}
                 tickLine={false}

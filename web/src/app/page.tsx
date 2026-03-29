@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
 import { ScanData } from "@/lib/types";
 import { fetcher } from "@/lib/api";

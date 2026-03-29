@@ -226,7 +226,7 @@ export default function RadarPage() {
               <th className="text-right py-2 px-3">Traders</th>
               <th className="text-left py-2 px-3">Sectors</th>
               <th className="text-right py-2 px-3">Market Cap</th>
-              <th className="text-center py-2 px-3">Deep Dive</th>
+              <th className="text-center py-2 px-3">Chart</th>
             </tr>
           </thead>
           <tbody>
