@@ -261,6 +261,43 @@ def _prefetch_deep_dives(results: list[dict], scan_data: dict):
     logger.info(f"Pre-built deep dives: {len([d for d in dives if d.get('success')])} of {len(dives)} successful")
 
 
+def _log_mcp_as_cli(scan_data: dict):
+    """Log MCP refresh results as CLI activity entries."""
+    from api.cli_log import log_call
+    from collections import Counter
+
+    results = scan_data.get("results", [])
+    if not results:
+        return
+
+    # Count tokens per chain
+    chain_counts: Counter = Counter()
+    # Track chains with divergent tokens (ACCUMULATION/DISTRIBUTION)
+    divergent_chains: set[str] = set()
+    for token in results:
+        chain = token.get("chain", "unknown")
+        chain_counts[chain] += 1
+        phase = token.get("phase", "")
+        if phase in ("ACCUMULATION", "DISTRIBUTION"):
+            divergent_chains.add(chain)
+
+    # Log token screener command per chain
+    for chain, count in sorted(chain_counts.items()):
+        log_call(
+            f"nansen research token screener --chain {chain} --timeframe 24h",
+            success=True, token_count=count, source="cli",
+        )
+
+    # Log smart-money netflow command for chains with divergent tokens
+    for chain in sorted(divergent_chains):
+        log_call(
+            f"nansen research smart-money netflow --chain {chain}",
+            success=True, token_count=chain_counts[chain], source="cli",
+        )
+
+    logger.info(f"CLI activity logged: {len(chain_counts)} screener + {len(divergent_chains)} netflow commands")
+
+
 def _run_mcp_refresh():
     """Run a zero-credit scan using MCP general_search."""
     from api.cache import save_cached_scan
@@ -324,6 +361,7 @@ def _run_mcp_refresh():
                     logger.warning(f"CLI enrichment failed (graceful fallback): {e}")
 
             save_cached_scan(scan_data)
+            _log_mcp_as_cli(scan_data)
             logger.info(
                 f"MCP refresh complete: {scan_data['summary']['total_tokens']} tokens, "
                 f"{scan_data['summary']['divergence_signals']} divergent, "
