@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml/badge.svg)](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Ridwannurudeen/nansen-divergence/blob/main/LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-nansen.gudman.xyz-orange)](https://nansen.gudman.xyz)
 
 **[Live Dashboard](https://nansen.gudman.xyz)** | Multi-chain divergence scanner with volume proxy analysis, Wyckoff phase classification, signal backtesting, and Alpha Score ranking.
