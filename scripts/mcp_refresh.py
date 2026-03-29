@@ -26,7 +26,7 @@ def main():
     results = scan_data.get("results", [])
     summary = scan_data.get("summary", {})
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Tokens: {summary.get('total_tokens', 0)}")
     print(f"  Chains: {scan_data.get('chains', [])}")
     print(f"  Divergent: {summary.get('divergence_signals', 0)}")
@@ -43,7 +43,7 @@ def main():
     print(f"\nSaved to {CACHE_PATH}")
 
     # Print top 10
-    print(f"\nTop 10 by divergence strength:")
+    print("\nTop 10 by divergence strength:")
     for r in results[:10]:
         sym = r.get("token_symbol", "?")
         chain = r.get("chain", "?")

@@ -373,6 +373,7 @@ def start_scheduler():
 
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
-    cli_msg = f", CLI enrichment every {CLI_ENRICH_MINUTES}min for {','.join(CLI_ENRICH_CHAINS)}" if CLI_ENRICH_MINUTES > 0 else ""
+    chains_str = ",".join(CLI_ENRICH_CHAINS)
+    cli_msg = f", CLI enrichment every {CLI_ENRICH_MINUTES}min for {chains_str}" if CLI_ENRICH_MINUTES > 0 else ""
     logger.info(f"Scheduler started: credit scan every {SCAN_INTERVAL_MINUTES}min{budget_msg}{cli_msg}")
     return scheduler
