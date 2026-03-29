@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import {
@@ -19,7 +19,8 @@ import {
 } from "recharts";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Token, DeepDiveData } from "@/lib/types";
-import { fetcher } from "@/lib/api";
+import { fetcher, authedFetcher } from "@/lib/api";
+import { getApiKey } from "@/lib/settings";
 import { fmtUsd, fmtPct, fmtPrice, chainLabel, cn, DEXSCREENER_SLUGS } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -602,6 +603,13 @@ export default function TokenPage({
 }) {
   const { chain, address } = use(params);
 
+  const [hasUserKey, setHasUserKey] = useState(() => !!getApiKey());
+  useEffect(() => {
+    const handler = () => setHasUserKey(!!getApiKey());
+    window.addEventListener("apikey-change", handler);
+    return () => window.removeEventListener("apikey-change", handler);
+  }, []);
+
   // Instant summary from cache
   const {
     data: summaryData,
@@ -613,15 +621,19 @@ export default function TokenPage({
     { revalidateOnFocus: false }
   );
 
-  // Slower deep dive
+  // Slower deep dive — use user key endpoint when available
+  const deepDiveUrl = hasUserKey
+    ? `/api/deep-dive/${chain}/${address}`
+    : `/api/token/${chain}/${address}`;
+
   const {
     data: deepDive,
     error: deepError,
     isLoading: deepLoading,
   } = useSWR<DeepDiveData>(
-    `/api/token/${chain}/${address}`,
-    fetcher,
-    { revalidateOnFocus: false }
+    deepDiveUrl,
+    hasUserKey ? authedFetcher : fetcher,
+    { revalidateOnFocus: false },
   );
 
   const token = summaryData?.token;

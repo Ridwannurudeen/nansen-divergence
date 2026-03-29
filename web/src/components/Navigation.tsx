@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Radar, TrendingUp, ArrowRightLeft, Info, Menu, X } from "lucide-react";
+import { LayoutDashboard, Radar, TrendingUp, ArrowRightLeft, Info, Menu, X, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApiKey } from "@/lib/settings";
+import { ApiKeyModal } from "@/components/ApiKeyModal";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,6 +19,14 @@ const NAV_ITEMS = [
 export function Navigation() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hasKey, setHasKey] = useState(() => !!getApiKey());
+
+  useEffect(() => {
+    const handler = () => setHasKey(!!getApiKey());
+    window.addEventListener("apikey-change", handler);
+    return () => window.removeEventListener("apikey-change", handler);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -51,10 +61,25 @@ export function Navigation() {
             ))}
           </div>
 
-          {/* Live indicator */}
-          <div className="hidden md:flex items-center gap-2 text-xs font-mono text-muted">
-            <span className="w-2 h-2 rounded-full bg-bullish animate-live" aria-hidden="true" />
-            LIVE
+          {/* Settings + Live indicator */}
+          <div className="hidden md:flex items-center gap-3">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="relative flex items-center gap-1 text-muted hover:text-white transition-colors p-1"
+              aria-label="API key settings"
+            >
+              <Settings size={14} aria-hidden="true" />
+              <span
+                className={cn(
+                  "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full",
+                  hasKey ? "bg-bullish" : "bg-muted/50",
+                )}
+              />
+            </button>
+            <div className="flex items-center gap-2 text-xs font-mono text-muted">
+              <span className="w-2 h-2 rounded-full bg-bullish animate-live" aria-hidden="true" />
+              LIVE
+            </div>
           </div>
 
           {/* Mobile hamburger */}
@@ -86,9 +111,24 @@ export function Navigation() {
                 {label}
               </Link>
             ))}
+            <button
+              onClick={() => { setOpen(false); setShowSettings(true); }}
+              className="flex items-center gap-2 px-3 py-2 rounded text-sm font-mono text-muted hover:text-white hover:bg-surface-hover transition-colors w-full"
+              role="menuitem"
+            >
+              <Settings size={14} aria-hidden="true" />
+              API Key
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full ml-auto",
+                  hasKey ? "bg-bullish" : "bg-muted/50",
+                )}
+              />
+            </button>
           </div>
         )}
       </div>
+      <ApiKeyModal open={showSettings} onClose={() => setShowSettings(false)} />
     </nav>
   );
 }
