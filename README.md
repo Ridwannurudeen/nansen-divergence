@@ -21,9 +21,13 @@ Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + MCP. Sub
 |:-----------:|:-----------------:|
 | ![Performance](docs/screenshots/performance.png) | ![Flows](docs/screenshots/flows.png) |
 
-| CLI Activity | Demo Video |
-|:------------:|:----------:|
-| ![CLI Activity](docs/screenshots/cli-activity.png) | [Watch Demo (1:53)](docs/screenshots/dashboard-demo.mp4) |
+| CLI Activity |
+|:------------:|
+| ![CLI Activity](docs/screenshots/cli-activity.png) |
+
+## Demo
+
+https://github.com/Ridwannurudeen/nansen-divergence/raw/main/docs/screenshots/dashboard-demo.mp4
 
 ## What It Does
 
