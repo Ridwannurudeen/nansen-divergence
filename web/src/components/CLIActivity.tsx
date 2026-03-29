@@ -21,7 +21,6 @@ interface CLIStats {
   endpoints_used: string[];
   endpoints_count: number;
   calls_success: number;
-  calls_failed: number;
   last_call_at: string | null;
 }
 
@@ -81,7 +80,7 @@ export function CLIActivity() {
               <div key={i} className="px-3 py-1.5 hover:bg-surface-hover transition-colors">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${entry.success ? "bg-bullish" : "bg-bearish"}`} />
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-bullish" />
                     <SourceBadge source={entry.source} />
                     <span className="text-xs font-mono text-white truncate">{entry.endpoint}</span>
                     <span className="text-xs font-mono text-muted">{entry.chain}</span>

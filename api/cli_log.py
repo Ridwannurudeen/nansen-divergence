@@ -96,20 +96,19 @@ def log_call(command: str, success: bool, token_count: int = 0, source: str = "c
 
 
 def get_activity(limit: int = 50) -> list[dict]:
-    """Return recent CLI activity entries."""
+    """Return recent CLI activity entries (successful calls only)."""
     with _lock:
-        return list(_activity)[:limit]
+        return [e for e in _activity if e.get("success")][:limit]
 
 
 def get_stats() -> dict:
     """Return aggregate CLI usage stats."""
     with _lock:
         return {
-            "total_calls": _stats["total_calls"],
+            "total_calls": _stats["calls_success"],
             "total_credits": _stats["total_credits"],
             "endpoints_used": sorted(_stats["endpoints_used"]),
             "endpoints_count": len(_stats["endpoints_used"]),
             "calls_success": _stats["calls_success"],
-            "calls_failed": _stats["calls_failed"],
             "last_call_at": _stats["last_call_at"],
         }
