@@ -2,10 +2,11 @@
 
 import useSWR from "swr";
 import { useState, useEffect } from "react";
-import { Star } from "lucide-react";
+import { Star, Key } from "lucide-react";
 import { ScanData } from "@/lib/types";
 import { fetcher } from "@/lib/api";
 import { getWatchlist } from "@/lib/watchlist";
+import { getApiKey } from "@/lib/settings";
 import { Header } from "@/components/Header";
 import { ChainPulse } from "@/components/ChainPulse";
 import { MetricCards } from "@/components/MetricCards";
@@ -59,6 +60,42 @@ function DashboardSkeleton() {
   );
 }
 
+function ByokBanner() {
+  const [hasKey, setHasKey] = useState(() => !!getApiKey());
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setHasKey(!!getApiKey());
+    window.addEventListener("apikey-change", handler);
+    return () => window.removeEventListener("apikey-change", handler);
+  }, []);
+
+  if (hasKey || dismissed) return null;
+
+  return (
+    <div className="bg-accent/5 border border-accent/30 rounded-lg p-3 my-3 flex items-start gap-3">
+      <Key size={16} className="text-accent mt-0.5 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-mono font-bold text-white">Bring Your Own Key (BYOK)</p>
+        <p className="text-xs font-mono text-muted mt-1">
+          Paste your Nansen API key to unlock token deep dives with real smart money data.
+          Stored locally in your browser — never sent to our server. Get a key at{" "}
+          <a href="https://app.nansen.ai/auth/agent-setup" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+            app.nansen.ai
+          </a>
+        </p>
+      </div>
+      <button
+        onClick={() => setDismissed(true)}
+        className="text-muted hover:text-white text-xs font-mono shrink-0"
+        aria-label="Dismiss"
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
 export default function Home() {
   const { data, error, isLoading } = useSWR<ScanData>("/api/scan/latest", fetcher, {
     refreshInterval: 60000,
@@ -99,6 +136,8 @@ export default function Home() {
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
       <Header timestamp={data?.timestamp} isDemo={data?.demo} />
+
+      <ByokBanner />
 
       {isLoading && <DashboardSkeleton />}
 

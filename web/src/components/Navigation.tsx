@@ -61,20 +61,20 @@ export function Navigation() {
             ))}
           </div>
 
-          {/* Settings + Live indicator */}
+          {/* BYOK + Live indicator */}
           <div className="hidden md:flex items-center gap-3">
             <button
               onClick={() => setShowSettings(true)}
-              className="relative flex items-center gap-1 text-muted hover:text-white transition-colors p-1"
-              aria-label="API key settings"
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors border",
+                hasKey
+                  ? "border-bullish/40 text-bullish bg-bullish/10 hover:bg-bullish/20"
+                  : "border-accent/40 text-accent bg-accent/10 hover:bg-accent/20 animate-pulse",
+              )}
+              aria-label="Bring your own Nansen API key"
             >
-              <Settings size={14} aria-hidden="true" />
-              <span
-                className={cn(
-                  "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full",
-                  hasKey ? "bg-bullish" : "bg-muted/50",
-                )}
-              />
+              <Settings size={12} aria-hidden="true" />
+              {hasKey ? "KEY SET" : "BYOK"}
             </button>
             <div className="flex items-center gap-2 text-xs font-mono text-muted">
               <span className="w-2 h-2 rounded-full bg-bullish animate-live" aria-hidden="true" />
