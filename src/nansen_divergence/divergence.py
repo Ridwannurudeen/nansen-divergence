@@ -181,8 +181,9 @@ def generate_narrative(token: dict) -> str:
 
     if is_volume_proxy:
         if phase == "ACCUMULATION":
-            return (f"{source}: {flow_str} buy pressure into {symbol} "
-                    f"despite {pct:.1f}% price drop — accumulation pattern")
+            return (
+                f"{source}: {flow_str} buy pressure into {symbol} despite {pct:.1f}% price drop — accumulation pattern"
+            )
         elif phase == "DISTRIBUTION":
             return f"{source}: {flow_str} sell pressure from {symbol} into {pct:.1f}% rally — distribution pattern"
         elif phase == "MARKUP":

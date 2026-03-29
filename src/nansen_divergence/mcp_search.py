@@ -29,9 +29,7 @@ _MCP_URL = "https://mcp.nansen.ai/ra/mcp"
 class _PostRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if code in (307, 308):
-            return urllib.request.Request(
-                newurl, data=req.data, headers=dict(req.headers), method=req.get_method()
-            )
+            return urllib.request.Request(newurl, data=req.data, headers=dict(req.headers), method=req.get_method())
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -44,14 +42,18 @@ def _mcp_search(query: str) -> str:
     if not key:
         raise RuntimeError("No API key set")
 
-    body = json.dumps({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": {"name": "general_search", "arguments": {"query": query}},
-    }).encode()
+    body = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "general_search", "arguments": {"query": query}},
+        }
+    ).encode()
 
     req = urllib.request.Request(
-        _MCP_URL, data=body,
+        _MCP_URL,
+        data=body,
         headers={
             "Content-Type": "application/json",
             "NANSEN-API-KEY": key.strip(),
@@ -71,7 +73,7 @@ def _mcp_search(query: str) -> str:
         line = line.strip()
         if not line.startswith("data:"):
             continue
-        payload = line[len("data:"):].strip()
+        payload = line[len("data:") :].strip()
         if not payload:
             continue
         try:
@@ -172,11 +174,16 @@ def _parse_search_results(text: str) -> tuple[list[dict], list[dict]]:
                 vol = _parse_num(row.get("Volume 24h USD", ""))
                 name = row.get("Name", "").strip()
                 if sym and addr:
-                    tokens.append({
-                        "token_symbol": sym, "token_address": addr,
-                        "chain": chain, "price_usd": price,
-                        "volume_24h": vol, "name": name,
-                    })
+                    tokens.append(
+                        {
+                            "token_symbol": sym,
+                            "token_address": addr,
+                            "chain": chain,
+                            "price_usd": price,
+                            "volume_24h": vol,
+                            "name": name,
+                        }
+                    )
         elif section.startswith("Entities"):
             rows = _parse_table(section)
             for row in rows:
@@ -197,62 +204,126 @@ def _parse_search_results(text: str) -> tuple[list[dict], list[dict]]:
 SEARCH_QUERIES = {
     # Major L1/L2 chains
     "chains": [
-        "ethereum", "solana", "bnb", "base", "arbitrum",
-        "avalanche", "polygon", "optimism",
+        "ethereum",
+        "solana",
+        "bnb",
+        "base",
+        "arbitrum",
+        "avalanche",
+        "polygon",
+        "optimism",
     ],
     # DeFi protocols
     "defi": [
-        "AAVE", "UNI", "SUSHI", "CRV", "MKR", "COMP", "SNX",
-        "YFI", "BAL", "1INCH", "PENDLE", "ENS", "DYDX",
+        "AAVE",
+        "UNI",
+        "SUSHI",
+        "CRV",
+        "MKR",
+        "COMP",
+        "SNX",
+        "YFI",
+        "BAL",
+        "1INCH",
+        "PENDLE",
+        "ENS",
+        "DYDX",
     ],
     # Meme coins
     "meme": [
-        "PEPE", "DOGE", "SHIB", "BONK", "WIF", "FLOKI",
-        "BRETT", "DEGEN", "MEME", "NEIRO",
+        "PEPE",
+        "DOGE",
+        "SHIB",
+        "BONK",
+        "WIF",
+        "FLOKI",
+        "BRETT",
+        "DEGEN",
+        "MEME",
+        "NEIRO",
     ],
     # AI tokens
     "ai": [
-        "RENDER", "FET", "TAO", "VIRTUAL", "AI16Z",
-        "GRIFFAIN", "GOAT",
+        "RENDER",
+        "FET",
+        "TAO",
+        "VIRTUAL",
+        "AI16Z",
+        "GRIFFAIN",
+        "GOAT",
     ],
     # Gaming / Metaverse
     "gaming": [
-        "AXS", "SAND", "GALA", "IMX", "MAGIC",
-        "PRIME", "PIXEL",
+        "AXS",
+        "SAND",
+        "GALA",
+        "IMX",
+        "MAGIC",
+        "PRIME",
+        "PIXEL",
     ],
     # LST / LSD
     "lst": [
-        "LDO", "RPL", "CBETH", "RETH", "SFRXETH",
-        "MSOL", "JITOSOL",
+        "LDO",
+        "RPL",
+        "CBETH",
+        "RETH",
+        "SFRXETH",
+        "MSOL",
+        "JITOSOL",
     ],
     # Infrastructure
     "infra": [
-        "LINK", "GRT", "FIL", "THETA", "PYTH",
-        "W", "ZRO",
+        "LINK",
+        "GRT",
+        "FIL",
+        "THETA",
+        "PYTH",
+        "W",
+        "ZRO",
     ],
     # DEX specific
     "dex": [
-        "CAKE", "JUP", "RAY", "AERO", "GMX",
-        "GNS", "ORCA",
+        "CAKE",
+        "JUP",
+        "RAY",
+        "AERO",
+        "GMX",
+        "GNS",
+        "ORCA",
     ],
     # Top market cap
     "blue_chip": [
-        "BTC", "ETH", "SOL", "BNB", "XRP", "ADA",
-        "AVAX", "DOT", "NEAR", "ATOM",
+        "BTC",
+        "ETH",
+        "SOL",
+        "BNB",
+        "XRP",
+        "ADA",
+        "AVAX",
+        "DOT",
+        "NEAR",
+        "ATOM",
     ],
 }
 
 # Sector tags derived from search category
 _CATEGORY_SECTORS = {
-    "defi": ["DeFi"], "meme": ["Meme"], "ai": ["AI"],
-    "gaming": ["Gaming"], "lst": ["LST", "DeFi"], "infra": ["Infrastructure"],
-    "dex": ["DEX", "DeFi"], "blue_chip": ["Blue Chip"],
+    "defi": ["DeFi"],
+    "meme": ["Meme"],
+    "ai": ["AI"],
+    "gaming": ["Gaming"],
+    "lst": ["LST", "DeFi"],
+    "infra": ["Infrastructure"],
+    "dex": ["DEX", "DeFi"],
+    "blue_chip": ["Blue Chip"],
 }
 
 
 # ---------------------------------------------------------------------------
 # Price history DB
 # ---------------------------------------------------------------------------
+
 
 def _get_db_path() -> str:
     cache_dir = os.environ.get("CACHE_DIR", str(Path.home() / ".nansen-divergence"))
@@ -284,11 +355,14 @@ def _save_prices(conn: sqlite3.Connection, tokens: list[dict]):
     now = datetime.now(timezone.utc).isoformat()
     rows = [
         (t["token_address"], t.get("chain", ""), t["price_usd"], t.get("volume_24h", 0), now)
-        for t in tokens if t.get("price_usd", 0) > 0
+        for t in tokens
+        if t.get("price_usd", 0) > 0
     ]
-    sql = ("INSERT OR REPLACE INTO price_history "
-           "(token_address, chain, price_usd, volume_24h, timestamp) "
-           "VALUES (?,?,?,?,?)")
+    sql = (
+        "INSERT OR REPLACE INTO price_history "
+        "(token_address, chain, price_usd, volume_24h, timestamp) "
+        "VALUES (?,?,?,?,?)"
+    )
     conn.executemany(sql, rows)
     conn.commit()
 
@@ -308,6 +382,7 @@ def _get_price_change(conn: sqlite3.Connection, token_address: str, hours_ago: i
 
     # Get price from ~N hours ago (find closest)
     from datetime import timedelta
+
     target_time = (now - timedelta(hours=hours_ago)).isoformat()
     old_row = conn.execute(
         "SELECT price_usd FROM price_history WHERE token_address=? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1",
@@ -323,6 +398,7 @@ def _get_price_change(conn: sqlite3.Connection, token_address: str, hours_ago: i
 def _cleanup_old_prices(conn: sqlite3.Connection, keep_hours: int = 72):
     """Remove price records older than keep_hours."""
     from datetime import timedelta
+
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=keep_hours)).isoformat()
     conn.execute("DELETE FROM price_history WHERE timestamp < ?", (cutoff,))
     conn.commit()
@@ -331,6 +407,7 @@ def _cleanup_old_prices(conn: sqlite3.Connection, keep_hours: int = 72):
 # ---------------------------------------------------------------------------
 # Token discovery
 # ---------------------------------------------------------------------------
+
 
 def discover_all_tokens(
     categories: list[str] | None = None,
@@ -380,9 +457,11 @@ def discover_all_tokens(
 # Volume-based SM proxy signals
 # ---------------------------------------------------------------------------
 
+
 def _get_volume_history(conn: sqlite3.Connection, token_address: str, hours: int = 72) -> list[float]:
     """Get recent volume readings for relative volume calculation."""
     from datetime import timedelta
+
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     rows = conn.execute(
         "SELECT volume_24h FROM price_history WHERE token_address=? AND timestamp > ? ORDER BY timestamp",
@@ -408,16 +487,16 @@ def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None
     mcap = token.get("market_cap", 0)
     if not mcap and vol > 0:
         # Variable multiplier by volume tier (realistic vol/mcap ratios)
-        if vol > 100_000_000:      # Blue chip (BTC, ETH, SOL)
-            mcap = vol * 100       # ~1% vol/mcap
-        elif vol > 10_000_000:     # Large cap
-            mcap = vol * 50        # ~2% vol/mcap
-        elif vol > 1_000_000:      # Mid cap
-            mcap = vol * 25        # ~4% vol/mcap
-        elif vol > 100_000:        # Small cap
-            mcap = vol * 12        # ~8% vol/mcap
-        else:                      # Micro cap
-            mcap = vol * 5         # ~20% vol/mcap
+        if vol > 100_000_000:  # Blue chip (BTC, ETH, SOL)
+            mcap = vol * 100  # ~1% vol/mcap
+        elif vol > 10_000_000:  # Large cap
+            mcap = vol * 50  # ~2% vol/mcap
+        elif vol > 1_000_000:  # Mid cap
+            mcap = vol * 25  # ~4% vol/mcap
+        elif vol > 100_000:  # Small cap
+            mcap = vol * 12  # ~8% vol/mcap
+        else:  # Micro cap
+            mcap = vol * 5  # ~20% vol/mcap
     mcap = max(mcap, 100_000)
 
     # --- Volume/MCap ratio (institutional activity proxy) ---
@@ -507,7 +586,9 @@ def _generate_signals(token: dict, hour_seed: int, db: sqlite3.Connection | None
 
     # --- Score ---
     strength, phase, confidence = score_divergence(
-        net_flow, price_chg, max(mcap, 1),
+        net_flow,
+        price_chg,
+        max(mcap, 1),
         trader_count=whale_count,
         holdings_change=holdings_change,
     )
@@ -603,7 +684,9 @@ def run_mcp_search_scan(
             entry["price_change"] = round(real_change, 4)
             # Re-score with real price change
             strength, phase, confidence = score_divergence(
-                entry["sm_net_flow"], real_change, entry["market_cap"],
+                entry["sm_net_flow"],
+                real_change,
+                entry["market_cap"],
                 trader_count=entry["sm_trader_count"],
                 holdings_change=entry["sm_holdings_change"],
             )
@@ -625,16 +708,18 @@ def run_mcp_search_scan(
     radar = []
     for r in results:
         if r.get("phase") in ("ACCUMULATION", "DISTRIBUTION") and r.get("volume_24h", 0) > 50_000:
-            radar.append({
-                "chain": r["chain"],
-                "token_address": r["token_address"],
-                "token_symbol": r["token_symbol"],
-                "sm_net_flow_24h": r.get("sm_net_flow", 0),
-                "sm_net_flow_7d": r.get("sm_net_flow", 0) * 3,
-                "sm_trader_count": r.get("sm_trader_count", 0),
-                "sm_sectors": r.get("sectors", []),
-                "market_cap": r.get("market_cap", 0),
-            })
+            radar.append(
+                {
+                    "chain": r["chain"],
+                    "token_address": r["token_address"],
+                    "token_symbol": r["token_symbol"],
+                    "sm_net_flow_24h": r.get("sm_net_flow", 0),
+                    "sm_net_flow_7d": r.get("sm_net_flow", 0) * 3,
+                    "sm_trader_count": r.get("sm_trader_count", 0),
+                    "sm_sectors": r.get("sectors", []),
+                    "market_cap": r.get("market_cap", 0),
+                }
+            )
 
     # 7. Summary
     active_chains = sorted(set(r["chain"] for r in results))

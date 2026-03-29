@@ -1,4 +1,4 @@
-# nansen-divergence v5.0
+# nansen-divergence v5.3
 
 [![CI](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml/badge.svg)](https://github.com/Ridwannurudeen/nansen-divergence/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -119,6 +119,11 @@ Tokens enriched with real CLI data show a green **CLI** badge on the dashboard; 
 - HTML reports, JSON output, Telegram alerts, watch mode
 - Signal history with SQLite persistence and outcome validation
 
+**CLI Activity Feed**
+- Live terminal-style feed showing every Nansen CLI/REST call
+- Tracks endpoint, chain, credits, token count, source (CLI/REST)
+- Aggregate stats: total calls, credits used, endpoints active
+
 **Dashboard (Next.js)**
 - Terminal-style dark UI (JetBrains Mono, orange accent)
 - Token watchlist with localStorage persistence
@@ -139,6 +144,8 @@ Tokens enriched with real CLI data show a green **CLI** badge on the dashboard; 
 | Token watchlist | Not available | Client-side star + persist |
 | Real-time dashboard | Not available | Next.js terminal UI, 60s refresh |
 | Real SM enrichment | N/A | CLI screener + netflow → real data on ETH/BNB |
+| CLI activity feed | N/A | Live feed of every CLI/REST call with stats |
+| 3-tier API fallback | N/A | CLI binary → REST API → MCP (automatic) |
 | Zero-credit mode | N/A | MCP general_search (unlimited) |
 | Self-hosted | N/A | Docker Compose + nginx |
 
@@ -253,7 +260,8 @@ pytest tests/ api/tests/ -v
 - **8** blockchain chains scanned every 5 minutes
 - **9** Nansen API endpoints integrated (CLI + MCP)
 - **5** dashboard pages with responsive mobile layouts
-- **~288** API credits/day in production (CLI enrichment on ETH/BNB every 30min)
+- **13+** verified Nansen API calls across 9 chains and 4 endpoints
+- **3-tier** API fallback: CLI binary → REST API → MCP (automatic)
 
 ## License
 

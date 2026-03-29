@@ -324,9 +324,7 @@ def scan_multi_chain(
             all_radar[chain] = radar
             console.print(f"  [green]✓ {chain.upper()}: {len(results)} tokens, {len(radar)} radar[/green]")
         except InsufficientCreditsError:
-            console.print(
-                f"  [red]✗ Credits exhausted at {chain.upper()} — stopping[/red]"
-            )
+            console.print(f"  [red]✗ Credits exhausted at {chain.upper()} — stopping[/red]")
             all_results[chain] = []
             all_radar[chain] = []
             break  # Stop scanning further chains

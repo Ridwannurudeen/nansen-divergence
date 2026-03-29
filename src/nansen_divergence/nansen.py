@@ -24,6 +24,7 @@ from .mcp_client import (
 
 class InsufficientCreditsError(Exception):
     """Raised when API returns 403 Insufficient credits — stops all fallback."""
+
     pass
 
 
@@ -167,8 +168,7 @@ def token_screener(chain: str, timeframe: str = "24h", pages: int = 2) -> list[d
     all_tokens: list[dict] = []
     try:
         for page in range(1, pages + 1):
-            args = ["research", "token", "screener", "--chain", chain,
-                    "--timeframe", timeframe, "--page", str(page)]
+            args = ["research", "token", "screener", "--chain", chain, "--timeframe", timeframe, "--page", str(page)]
             resp = _run(args)
             if resp.get("success"):
                 all_tokens.extend(resp["data"]["data"])
