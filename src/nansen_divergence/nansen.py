@@ -126,7 +126,7 @@ def _run(args: list[str]) -> dict:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     except FileNotFoundError:
         _notify_log(f"nansen {cmd_str}", False, source="cli")
-        print("Error: 'nansen' CLI not found. Install it: npm i -g @anthropic-ai/nansen", file=sys.stderr)
+        print("Error: 'nansen' CLI not found. Install it: npm i -g nansen-cli", file=sys.stderr)
         sys.exit(1)
     except subprocess.TimeoutExpired:
         _notify_log(f"nansen {cmd_str}", False, source="cli")

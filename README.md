@@ -7,9 +7,23 @@
 
 **[Live Dashboard](https://nansen.gudman.xyz)** | Multi-chain divergence scanner with volume proxy analysis, Wyckoff phase classification, signal backtesting, and Alpha Score ranking.
 
-Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + MCP. Submitted for the **Nansen CLI Hackathon (Week 2)**.
+Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + REST API + MCP. Submitted for the **Nansen CLI Hackathon (Week 2)**.
 
-> **Hackathon context**: This project extends the Nansen CLI into a full trading intelligence platform. It discovers tokens via Nansen's MCP `general_search` (zero credits), derives institutional activity signals from volume/price data, classifies Wyckoff phases, and tracks signal outcomes over time — all self-hosted with a real-time Next.js dashboard.
+### Nansen CLI Integration — 9 Endpoints, 3-Tier Fallback
+
+| Endpoint | Purpose | Fallback |
+|----------|---------|----------|
+| `research token screener` | Token discovery + market cap + netflow | CLI → REST → MCP |
+| `research smart-money netflow` | SM net flow per token (24h/7d) | CLI → REST → MCP |
+| `research smart-money dex-trades` | Individual SM wallet trades | CLI → REST → MCP |
+| `research smart-money holdings` | SM positions + 24h change | CLI → REST → MCP |
+| `research token flow-intelligence` | Flow by wallet label (whale, SM, etc.) | CLI → REST |
+| `research token who-bought-sold` | Named top buyers/sellers | CLI → REST |
+| `research token indicators` | Nansen Score / risk / reward | CLI → REST |
+| `research profiler labels` | Wallet entity labels | CLI → REST |
+| `research profiler pnl-summary` | Wallet PnL history | CLI → REST |
+
+Every call auto-falls through: **CLI binary → REST API → MCP protocol**. If CLI credits are exhausted, the scanner switches to MCP `general_search` (zero credits, unlimited) for token discovery across all 8 chains.
 
 ## Screenshots
 
@@ -221,20 +235,6 @@ docker compose up -d
 # API at :8010, Dashboard at :3010
 # Add nginx reverse proxy for HTTPS
 ```
-
-## Nansen CLI / API Usage
-
-| Command | Purpose | Active in Prod |
-|---------|---------|:--------------:|
-| `research token screener` | Token list + price + netflow | **YES** (CLI enrichment) |
-| `research smart-money netflow` | SM net flow per token | **YES** (CLI enrichment) |
-| `research smart-money dex-trades` | Individual SM wallet trades | CLI scan mode |
-| `research smart-money holdings` | SM positions + 24h change | CLI scan mode |
-| `research token flow-intelligence` | Flow by wallet label | Deep dive |
-| `research token who-bought-sold` | Named buyers/sellers | Deep dive |
-| `research token indicators` | Nansen Score | Deep dive |
-| `research profiler labels` | Wallet labels | Deep dive |
-| `research profiler pnl-summary` | Wallet PnL history | Deep dive |
 
 ## Scoring Algorithm
 

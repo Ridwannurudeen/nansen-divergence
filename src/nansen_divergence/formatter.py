@@ -332,18 +332,7 @@ def print_auto_dive_results(dive_data: dict, token_symbol: str = ""):
         console.print("    [bold]Top Wallets:[/bold]")
         for w in wallets:
             addr = w.get("address", "???")
-            labels = w.get("labels", {})
-            if isinstance(labels, dict):
-                label_data = labels.get("data", [])
-            elif isinstance(labels, list):
-                label_data = labels
-            else:
-                label_data = []
-
-            label_names = []
-            if isinstance(label_data, list):
-                label_names = [lb.get("label") or lb.get("name", "") for lb in label_data if isinstance(lb, dict)]
-
+            label_names = _extract_label_list(w.get("labels", {}))
             label_str = f" ({', '.join(label_names[:3])})" if label_names else ""
             console.print(f"      {addr[:12]}...{label_str}")
 
@@ -395,14 +384,38 @@ def print_deep_dive(data: dict, token_symbol: str = ""):
     console.print()
 
 
+def _extract_label_list(labels) -> list[str]:
+    """Extract label names from various API response formats."""
+    if isinstance(labels, list):
+        label_data = labels
+    elif isinstance(labels, dict):
+        label_data = labels.get("data", labels)
+        if isinstance(label_data, dict):
+            return []
+    else:
+        return []
+    if isinstance(label_data, list):
+        return [lb.get("label") or lb.get("name", "") for lb in label_data if isinstance(lb, dict)]
+    return []
+
+
+def _extract_data_dict(raw) -> dict:
+    """Unwrap {data: [...]} or [{...}] into a single dict."""
+    if isinstance(raw, dict):
+        inner = raw.get("data", raw)
+        if isinstance(inner, list) and inner:
+            return inner[0] if isinstance(inner[0], dict) else {}
+        return inner if isinstance(inner, dict) else {}
+    if isinstance(raw, list) and raw:
+        return raw[0] if isinstance(raw[0], dict) else {}
+    return {}
+
+
 def _print_indicators(indicators: dict, indent: int = 0):
     """Print Nansen Score / token indicators."""
     prefix = " " * indent
-    raw = indicators.get("data", indicators)
-
-    if isinstance(raw, list) and raw:
-        raw = raw[0]
-    if not isinstance(raw, dict):
+    raw = _extract_data_dict(indicators)
+    if not raw:
         console.print(f"{prefix}[dim]No indicator data available[/dim]")
         return
 
@@ -432,12 +445,8 @@ def _print_indicators(indicators: dict, indent: int = 0):
 def _print_flow_intelligence(fi: dict, indent: int = 0):
     """Print flow intelligence data as a structured table."""
     prefix = " " * indent
-    raw = fi.get("data", fi)
-    if isinstance(raw, list) and raw:
-        fi_data = raw[0]
-    elif isinstance(raw, dict):
-        fi_data = raw
-    else:
+    fi_data = _extract_data_dict(fi)
+    if not fi_data:
         _print_nested_data(fi, indent=indent)
         return
 
@@ -538,44 +547,25 @@ def _print_wallet_profile(wallet: dict):
     addr = wallet.get("address", "???")
     console.print(f"\n  [bold]{addr}[/bold]")
 
-    labels = wallet.get("labels", {})
-    if labels:
-        if isinstance(labels, list):
-            label_data = labels
-        elif isinstance(labels, dict):
-            label_data = labels.get("data", labels)
-        else:
-            label_data = None
+    label_names = _extract_label_list(wallet.get("labels", {}))
+    if label_names:
+        console.print(f"    [dim]Labels:[/dim] {', '.join(label_names)}")
 
-        if isinstance(label_data, list):
-            label_names = [lb.get("label") or lb.get("name", "") for lb in label_data if isinstance(lb, dict)]
-            if label_names:
-                console.print(f"    [dim]Labels:[/dim] {', '.join(label_names)}")
-        elif isinstance(label_data, dict):
-            _print_nested_data(label_data, indent=4)
-
-    pnl = wallet.get("pnl_summary", {})
-    if pnl:
-        if isinstance(pnl, list):
-            pnl_data = pnl[0] if pnl else {}
-        elif isinstance(pnl, dict):
-            pnl_data = pnl.get("data", pnl)
-        else:
-            pnl_data = {}
-        if isinstance(pnl_data, dict):
-            realized = pnl_data.get("realized_pnl") or pnl_data.get("total_realized_pnl", 0)
-            win_rate = pnl_data.get("win_rate", 0)
-            trades = pnl_data.get("total_trades") or pnl_data.get("trade_count", 0)
-            if isinstance(realized, (int, float)):
-                console.print(f"    [dim]Realized PnL:[/dim] {_fmt_usd(realized)}")
-            if win_rate:
-                console.print(
-                    f"    [dim]Win Rate:[/dim] {win_rate:.1%}"
-                    if isinstance(win_rate, float)
-                    else f"    [dim]Win Rate:[/dim] {win_rate}"
-                )
-            if trades:
-                console.print(f"    [dim]Trades:[/dim] {trades}")
+    pnl_data = _extract_data_dict(wallet.get("pnl_summary", {}))
+    if pnl_data:
+        realized = pnl_data.get("realized_pnl") or pnl_data.get("total_realized_pnl", 0)
+        win_rate = pnl_data.get("win_rate", 0)
+        trades = pnl_data.get("total_trades") or pnl_data.get("trade_count", 0)
+        if isinstance(realized, (int, float)):
+            console.print(f"    [dim]Realized PnL:[/dim] {_fmt_usd(realized)}")
+        if win_rate:
+            console.print(
+                f"    [dim]Win Rate:[/dim] {win_rate:.1%}"
+                if isinstance(win_rate, float)
+                else f"    [dim]Win Rate:[/dim] {win_rate}"
+            )
+        if trades:
+            console.print(f"    [dim]Trades:[/dim] {trades}")
 
 
 def print_validation_section(validations: list[dict]):
