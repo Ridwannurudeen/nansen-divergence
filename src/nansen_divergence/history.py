@@ -168,6 +168,10 @@ def validate_signals(
 
         pct_change = (current_price - signal_price) / signal_price * 100
 
+        # Skip unresolved signals — price hasn't moved enough to judge
+        if abs(pct_change) < 1.0:
+            continue
+
         scan_time = datetime.fromisoformat(row["scan_timestamp"].replace("Z", "+00:00"))
         if scan_time.tzinfo is None:
             scan_time = scan_time.replace(tzinfo=timezone.utc)
