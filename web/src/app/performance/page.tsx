@@ -360,7 +360,6 @@ export default function PerformancePage() {
         {/* Mobile: card layout */}
         <div className="md:hidden space-y-2">
           {sortedOutcomes.map((o, i) => {
-            const returnPct = o.price_change_pct * 100;
             const positive = o.price_change_pct >= 0;
             return (
               <div
@@ -392,7 +391,7 @@ export default function PerformancePage() {
                   <div>
                     <div className="text-muted">Return</div>
                     <div className={cn("font-bold", positive ? "text-bullish" : "text-bearish")}>
-                      {positive ? "+" : ""}{returnPct.toFixed(1)}%
+                      {positive ? "+" : ""}{o.price_change_pct.toFixed(1)}%
                     </div>
                   </div>
                 </div>
@@ -418,7 +417,6 @@ export default function PerformancePage() {
             </thead>
             <tbody>
               {sortedOutcomes.map((o, i) => {
-                const returnPct = o.price_change_pct * 100;
                 const positive = o.price_change_pct >= 0;
 
                 return (
@@ -442,7 +440,7 @@ export default function PerformancePage() {
                     <td className="py-2.5 px-3 text-right text-muted">{fmtPrice(o.signal_price)}</td>
                     <td className="py-2.5 px-3 text-right text-white">{fmtPrice(o.current_price)}</td>
                     <td className={cn("py-2.5 px-3 text-right font-bold", positive ? "text-bullish" : "text-bearish")}>
-                      {positive ? "+" : ""}{returnPct.toFixed(1)}%
+                      {positive ? "+" : ""}{o.price_change_pct.toFixed(1)}%
                     </td>
                     <td className="py-2.5 px-3 text-right text-muted">{o.days_ago}</td>
                   </tr>

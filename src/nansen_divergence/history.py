@@ -132,12 +132,14 @@ def validate_signals(
         if addr:
             current_lookup[addr] = r
 
-    # Get past divergent signals
+    # Get past divergent signals — only CLI-enriched tokens (has_sm_data=1)
+    # Volume-proxy tokens use synthetic flow data and should not be backtested
     now = datetime.now(timezone.utc)
     rows = conn.execute(
         """SELECT * FROM signals
         WHERE phase IN ('ACCUMULATION', 'DISTRIBUTION')
         AND confidence IN ('HIGH', 'MEDIUM')
+        AND has_sm_data = 1
         AND scan_timestamp >= datetime('now', ?)
         ORDER BY scan_timestamp DESC""",
         (f"-{lookback_days} days",),
