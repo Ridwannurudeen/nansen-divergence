@@ -84,7 +84,7 @@ def _run_scan():
                 if token.get("token_address", "").lower() in new_addrs:
                     token["is_new"] = True
             save_scan(flat, chains, "24h", conn=db_conn)
-            validations = validate_signals(flat, lookback_days=7, conn=db_conn)
+            validations = validate_signals(flat, lookback_days=30, conn=db_conn)
             bstats = backtest_stats(validations)
             db_conn.close()
         except Exception as e:
@@ -326,7 +326,7 @@ def _run_mcp_refresh():
                     if token.get("token_address", "").lower() in new_addrs:
                         token["is_new"] = True
                 save_scan(results, chains, "24h", conn=db_conn)
-                validations = validate_signals(results, lookback_days=7, conn=db_conn)
+                validations = validate_signals(results, lookback_days=30, conn=db_conn)
                 bstats = backtest_stats(validations)
                 db_conn.close()
             except Exception as e:

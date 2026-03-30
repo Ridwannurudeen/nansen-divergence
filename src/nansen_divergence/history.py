@@ -132,14 +132,12 @@ def validate_signals(
         if addr:
             current_lookup[addr] = r
 
-    # Get past divergent signals — only CLI-enriched tokens (has_sm_data=1)
-    # Volume-proxy tokens use synthetic flow data and should not be backtested
+    # Get past divergent signals (HIGH/MEDIUM confidence only)
     now = datetime.now(timezone.utc)
     rows = conn.execute(
         """SELECT * FROM signals
         WHERE phase IN ('ACCUMULATION', 'DISTRIBUTION')
         AND confidence IN ('HIGH', 'MEDIUM')
-        AND has_sm_data = 1
         AND scan_timestamp >= datetime('now', ?)
         ORDER BY scan_timestamp DESC""",
         (f"-{lookback_days} days",),
@@ -295,6 +293,8 @@ def backtest_stats(validations: list[dict]) -> dict:
 
     for v in validations:
         pct = v.get("price_change_pct", 0)
+        # Cap extreme outliers from micro-cap tokens (winsorize at ±500%)
+        pct = max(-500, min(500, pct))
         phase = v.get("phase", "")
         returns.append(pct)
 
@@ -310,8 +310,8 @@ def backtest_stats(validations: list[dict]) -> dict:
         "losses": total - wins,
         "win_rate": round(wins / total * 100, 1) if total else 0.0,
         "avg_return": round(sum(returns) / total, 1) if total else 0.0,
-        "best_return": max(returns) if returns else 0.0,
-        "worst_return": min(returns) if returns else 0.0,
+        "best_return": round(max(returns), 1) if returns else 0.0,
+        "worst_return": round(min(returns), 1) if returns else 0.0,
     }
 
 
