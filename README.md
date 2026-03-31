@@ -7,7 +7,7 @@
 
 **[Live Dashboard](https://nansen.gudman.xyz)** | Multi-chain divergence scanner with volume proxy analysis, Wyckoff phase classification, signal backtesting, and Alpha Score ranking.
 
-Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + REST API + MCP. Submitted for the **Nansen CLI Hackathon (Week 2)**.
+Built on the [Nansen CLI](https://docs.nansen.ai/nansen-cli/overview) + REST API + MCP.
 
 ### Nansen CLI Integration — 9 Endpoints, 3-Tier Fallback
 
