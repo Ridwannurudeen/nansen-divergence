@@ -10,6 +10,7 @@ from .history import DB_PATH, init_db
 logger = logging.getLogger("nansen.outcome_tracker")
 
 OUTCOME_WINDOWS = {"price_24h": 24, "price_72h": 72, "price_7d": 168}
+_ALLOWED_COLS = frozenset(OUTCOME_WINDOWS.keys())
 
 
 def fetch_price(chain: str, token_address: str) -> float | None:
@@ -38,6 +39,9 @@ def fill_outcomes(conn: sqlite3.Connection | None = None, db_path: str | None = 
     filled = 0
 
     for col, hours in OUTCOME_WINDOWS.items():
+        assert col in _ALLOWED_COLS, f"Unexpected column: {col}"  # guard against future mistakes
+        return_col = col.replace("price_", "return_")
+        assert return_col in {"return_24h", "return_72h", "return_7d"}, f"Unexpected return col: {return_col}"
         cutoff = (now - timedelta(hours=hours)).isoformat()
         rows = conn.execute(
             f"""SELECT id, chain, token_address, phase, price_at_emission, scan_timestamp
@@ -65,7 +69,6 @@ def fill_outcomes(conn: sqlite3.Connection | None = None, db_path: str | None = 
                 elif phase in ("DISTRIBUTION", "MARKDOWN"):
                     outcome = 1 if return_pct < 0 else 0
 
-            return_col = col.replace("price_", "return_")
             update_sql = f"UPDATE signals SET {col}=?, {return_col}=?"
             params: list = [price, return_pct]
 
