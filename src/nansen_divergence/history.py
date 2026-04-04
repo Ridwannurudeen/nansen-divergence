@@ -69,7 +69,7 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
     for col_name, col_type in _outcome_columns:
         try:
             conn.execute(f"ALTER TABLE signals ADD COLUMN {col_name} {col_type}")
-        except Exception:
+        except sqlite3.OperationalError:
             # Column already exists — safe to ignore.
             pass
 
@@ -118,7 +118,7 @@ def save_scan(
 
     cursor = conn.execute(
         "INSERT INTO scans (timestamp, chains, timeframe, token_count, divergence_count) VALUES (?, ?, ?, ?, ?)",
-        (",".join(chains), now, timeframe, len(results), len(divergent)),
+        (now, ",".join(chains), timeframe, len(results), len(divergent)),
     )
     scan_id = cursor.lastrowid
 
