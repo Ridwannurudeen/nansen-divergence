@@ -387,3 +387,63 @@ class TestGetSignalStreaks:
         assert streaks["0xa"]["streak"] == 2
         assert streaks["0xa"]["phase"] == "ACCUMULATION"
         conn.close()
+
+
+def test_signals_table_has_outcome_columns():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        cursor = conn.execute("PRAGMA table_info(signals)")
+        cols = {row["name"] for row in cursor.fetchall()}
+        assert "price_at_emission" in cols
+        assert "price_24h" in cols
+        assert "price_72h" in cols
+        assert "price_7d" in cols
+        assert "return_24h" in cols
+        assert "return_72h" in cols
+        assert "return_7d" in cols
+        assert "outcome_correct" in cols
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_wallet_scores_table_exists():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        conn.execute("INSERT INTO wallet_scores (address, chain) VALUES ('0xabc', 'ethereum')")
+        conn.commit()
+        row = conn.execute("SELECT address FROM wallet_scores").fetchone()
+        assert row[0] == '0xabc'
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_webhooks_table_exists():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        conn.execute("INSERT INTO webhooks (id, url, secret, created_at) VALUES ('1', 'http://x.com', 'secret', '2026-01-01')")
+        conn.commit()
+        row = conn.execute("SELECT url FROM webhooks").fetchone()
+        assert row[0] == 'http://x.com'
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)

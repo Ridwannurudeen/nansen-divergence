@@ -54,6 +54,50 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         CREATE INDEX IF NOT EXISTS idx_signals_chain_token_time
         ON signals (chain, token_address, scan_timestamp)
     """)
+
+    # Outcome columns — added safely so existing DBs are migrated without error.
+    _outcome_columns = [
+        ("price_at_emission", "REAL"),
+        ("price_24h", "REAL"),
+        ("price_72h", "REAL"),
+        ("price_7d", "REAL"),
+        ("return_24h", "REAL"),
+        ("return_72h", "REAL"),
+        ("return_7d", "REAL"),
+        ("outcome_correct", "INTEGER"),
+    ]
+    for col_name, col_type in _outcome_columns:
+        try:
+            conn.execute(f"ALTER TABLE signals ADD COLUMN {col_name} {col_type}")
+        except Exception:
+            # Column already exists — safe to ignore.
+            pass
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS wallet_scores (
+            address      TEXT NOT NULL,
+            chain        TEXT NOT NULL,
+            win_rate     REAL DEFAULT 0.0,
+            avg_return   REAL DEFAULT 0.0,
+            trade_count  INTEGER DEFAULT 0,
+            last_updated TEXT,
+            score        REAL DEFAULT 0.0,
+            PRIMARY KEY (address, chain)
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS webhooks (
+            id          TEXT PRIMARY KEY,
+            url         TEXT NOT NULL,
+            secret      TEXT NOT NULL,
+            filters     TEXT DEFAULT '{}',
+            created_at  TEXT NOT NULL,
+            last_fired  TEXT,
+            fire_count  INTEGER DEFAULT 0
+        )
+    """)
+
     conn.commit()
     return conn
 
