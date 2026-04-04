@@ -127,8 +127,8 @@ def save_scan(
             """INSERT INTO signals
             (scan_id, scan_timestamp, chain, token_address, token_symbol, price_usd,
              price_change, market_cap, sm_net_flow, divergence_strength, phase,
-             confidence, narrative, has_sm_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             confidence, narrative, has_sm_data, price_at_emission)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 scan_id,
                 now,
@@ -144,6 +144,7 @@ def save_scan(
                 r.get("confidence", "LOW"),
                 r.get("narrative", ""),
                 1 if r.get("has_sm_data") else 0,
+                r.get("price_usd"),
             ),
         )
 

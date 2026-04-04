@@ -447,3 +447,35 @@ def test_webhooks_table_exists():
         if conn:
             conn.close()
         os.unlink(db_path)
+
+
+def test_save_scan_records_price_at_emission():
+    import tempfile, os
+    from nansen_divergence.history import init_db, save_scan
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        results = [{
+            "chain": "ethereum",
+            "token_address": "0xabc",
+            "token_symbol": "TKN",
+            "price_usd": 42.5,
+            "price_change": -8.0,
+            "market_cap": 1000000,
+            "sm_net_flow": 50000,
+            "divergence_strength": 0.75,
+            "phase": "ACCUMULATION",
+            "confidence": "HIGH",
+            "narrative": "test",
+            "has_sm_data": 1,
+        }]
+        save_scan(results, ["ethereum"], "24h", conn=conn)
+        row = conn.execute("SELECT price_at_emission FROM signals WHERE token_symbol='TKN'").fetchone()
+        assert row is not None
+        assert row["price_at_emission"] == 42.5
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
