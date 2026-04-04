@@ -54,9 +54,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from api.routers import signals_v1, performance_v1
+from api.routers import signals_v1, performance_v1, webhooks_v1
 app.include_router(signals_v1.router)
 app.include_router(performance_v1.router)
+app.include_router(webhooks_v1.router)
 
 app.add_middleware(
     CORSMiddleware,

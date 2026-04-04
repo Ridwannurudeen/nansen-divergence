@@ -361,6 +361,16 @@ def _run_mcp_refresh():
                     logger.warning(f"CLI enrichment failed (graceful fallback): {e}")
 
             save_cached_scan(scan_data)
+
+            # Fire webhooks for divergent signals (non-blocking)
+            try:
+                from nansen_divergence.webhook_dispatcher import dispatch_scan_signals
+                fired = dispatch_scan_signals(results)
+                if fired:
+                    logger.info(f"Webhooks fired: {fired}")
+            except Exception as e:
+                logger.warning(f"Webhook dispatch failed: {e}")
+
             _log_mcp_as_cli(scan_data)
             logger.info(
                 f"MCP refresh complete: {scan_data['summary']['total_tokens']} tokens, "
