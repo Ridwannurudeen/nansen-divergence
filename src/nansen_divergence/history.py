@@ -474,3 +474,81 @@ def get_signal_streaks(
             streaks[addr] = {"phase": phase, "streak": streak, "since": since}
 
     return streaks
+
+
+def get_performance_stats(
+    conn: sqlite3.Connection | None = None,
+    db_path: str | None = None,
+    days: int | None = None,
+) -> dict:
+    """Compute aggregate signal performance stats from resolved outcomes."""
+    own_conn = conn is None
+    if own_conn:
+        conn = init_db(db_path=db_path or DB_PATH)
+
+    where_clauses = ["outcome_correct IS NOT NULL"]
+    params: list = []
+    if days:
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        where_clauses.append("scan_timestamp > ?")
+        params.append(cutoff)
+
+    where = " AND ".join(where_clauses)
+    rows = conn.execute(
+        f"SELECT phase, chain, outcome_correct, return_72h FROM signals WHERE {where}",
+        params,
+    ).fetchall()
+
+    if own_conn:
+        conn.close()
+
+    if not rows:
+        return {
+            "total_signals": 0, "resolved": 0, "wins": 0, "losses": 0,
+            "win_rate": 0.0, "avg_return_on_wins": 0.0, "avg_loss_on_losses": 0.0,
+            "profit_factor": 0.0, "by_phase": {}, "by_chain": {},
+        }
+
+    wins = [r for r in rows if r["outcome_correct"] == 1]
+    losses = [r for r in rows if r["outcome_correct"] == 0]
+    win_returns = [r["return_72h"] for r in wins if r["return_72h"] is not None]
+    loss_returns = [abs(r["return_72h"]) for r in losses if r["return_72h"] is not None]
+
+    by_phase: dict[str, dict] = {}
+    for r in rows:
+        p = r["phase"]
+        if p not in by_phase:
+            by_phase[p] = {"wins": 0, "total": 0}
+        by_phase[p]["total"] += 1
+        if r["outcome_correct"] == 1:
+            by_phase[p]["wins"] += 1
+    for p, d in by_phase.items():
+        d["win_rate"] = round(d["wins"] / d["total"], 3) if d["total"] else 0.0
+
+    by_chain: dict[str, dict] = {}
+    for r in rows:
+        c = r["chain"]
+        if c not in by_chain:
+            by_chain[c] = {"wins": 0, "total": 0}
+        by_chain[c]["total"] += 1
+        if r["outcome_correct"] == 1:
+            by_chain[c]["wins"] += 1
+    for c, d in by_chain.items():
+        d["win_rate"] = round(d["wins"] / d["total"], 3) if d["total"] else 0.0
+
+    total_gain = sum(win_returns)
+    total_loss = sum(loss_returns)
+
+    return {
+        "total_signals": len(rows),
+        "resolved": len(rows),
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": round(len(wins) / len(rows), 3) if rows else 0.0,
+        "avg_return_on_wins": round(sum(win_returns) / len(win_returns), 2) if win_returns else 0.0,
+        "avg_loss_on_losses": round(sum(loss_returns) / len(loss_returns), 2) if loss_returns else 0.0,
+        "profit_factor": round(total_gain / total_loss, 2) if total_loss else 0.0,
+        "by_phase": by_phase,
+        "by_chain": by_chain,
+    }

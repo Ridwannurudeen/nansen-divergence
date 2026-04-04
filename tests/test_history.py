@@ -449,6 +449,61 @@ def test_webhooks_table_exists():
         os.unlink(db_path)
 
 
+def test_get_performance_stats_empty():
+    import tempfile, os
+    from nansen_divergence.history import init_db, get_performance_stats
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        stats = get_performance_stats(conn=conn)
+        assert stats["total_signals"] == 0
+        assert stats["win_rate"] == 0.0
+        assert "by_phase" in stats
+        assert "by_chain" in stats
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_get_performance_stats_with_outcomes():
+    import tempfile, os
+    from nansen_divergence.history import init_db, save_scan, get_performance_stats
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        results = [
+            {"chain": "ethereum", "token_address": "0x1", "token_symbol": "A",
+             "price_usd": 100.0, "price_change": -8.0, "market_cap": 1e6,
+             "sm_net_flow": 50000, "divergence_strength": 0.8, "phase": "ACCUMULATION",
+             "confidence": "HIGH", "narrative": "x", "has_sm_data": 1},
+            {"chain": "ethereum", "token_address": "0x2", "token_symbol": "B",
+             "price_usd": 200.0, "price_change": -5.0, "market_cap": 1e6,
+             "sm_net_flow": 30000, "divergence_strength": 0.6, "phase": "ACCUMULATION",
+             "confidence": "MEDIUM", "narrative": "y", "has_sm_data": 1},
+        ]
+        save_scan(results, ["ethereum"], "24h", conn=conn)
+        conn.execute("UPDATE signals SET return_72h=20.0, outcome_correct=1 WHERE token_symbol='A'")
+        conn.execute("UPDATE signals SET return_72h=-10.0, outcome_correct=0 WHERE token_symbol='B'")
+        conn.commit()
+        stats = get_performance_stats(conn=conn)
+        assert stats["resolved"] == 2
+        assert stats["wins"] == 1
+        assert stats["losses"] == 1
+        assert stats["win_rate"] == 0.5
+        assert stats["avg_return_on_wins"] == 20.0
+        assert "ACCUMULATION" in stats["by_phase"]
+        assert "ethereum" in stats["by_chain"]
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
 def test_save_scan_records_price_at_emission():
     import tempfile, os
     from nansen_divergence.history import init_db, save_scan

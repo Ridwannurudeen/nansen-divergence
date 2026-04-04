@@ -409,6 +409,12 @@ def start_scheduler():
     if SCAN_INTERVAL_MINUTES > 0 and os.getenv("SCAN_ON_STARTUP", "0") == "1":
         scheduler.add_job(_run_scan, "date", id="initial_scan")
 
+    # Outcome tracker — fills price_24h/72h/7d for resolved signals (0 credits)
+    from nansen_divergence.outcome_tracker import fill_outcomes
+    scheduler.add_job(fill_outcomes, "interval", hours=1, id="outcome_tracker")
+    scheduler.add_job(fill_outcomes, "date", id="initial_outcome_fill")
+    logger.info("Outcome tracker scheduled: hourly")
+
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""
     chains_str = ",".join(CLI_ENRICH_CHAINS)
