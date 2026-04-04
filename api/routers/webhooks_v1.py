@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import AnyHttpUrl, BaseModel
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
 
 class WebhookRegister(BaseModel):
-    url: str
+    url: AnyHttpUrl
     filters: dict = {}
 
 
@@ -26,7 +26,7 @@ def register_webhook(body: WebhookRegister):
     conn = init_db(db_path=DB_PATH)
     conn.execute(
         "INSERT INTO webhooks (id, url, secret, filters, created_at) VALUES (?,?,?,?,?)",
-        (wh_id, body.url, secret, json.dumps(body.filters), now),
+        (wh_id, str(body.url), secret, json.dumps(body.filters), now),
     )
     conn.commit()
     conn.close()

@@ -71,3 +71,29 @@ def test_dispatch_signal_filters_by_chain():
         mock_post.assert_not_called()
     finally:
         os.unlink(db_path)
+
+
+def test_register_webhook_endpoint():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+    from fastapi.testclient import TestClient
+    from api.main import app
+    client = TestClient(app)
+    resp = client.post("/api/v1/webhooks/register", json={"url": "https://example.com/hook"})
+    assert resp.status_code == 201
+    data = resp.json()
+    assert "id" in data
+    assert "secret" in data
+    assert len(data["secret"]) == 64
+
+
+def test_delete_webhook_not_found():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+    from fastapi.testclient import TestClient
+    from api.main import app
+    client = TestClient(app)
+    resp = client.delete("/api/v1/webhooks/nonexistent-id-xyz")
+    assert resp.status_code == 404
