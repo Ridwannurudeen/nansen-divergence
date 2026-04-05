@@ -73,12 +73,13 @@ def fetch_recent_buyers(chain: str, token_address: str) -> list[dict]:
                     "block_time": tx.get("timeStamp", ""),
                 }
 
-        time.sleep(_RATE_LIMIT_SEC)
         return list(buyers.values())[:20]
 
     except Exception as e:
         logger.debug(f"fetch_recent_buyers failed {chain}:{token_address}: {e}")
         return []
+    finally:
+        time.sleep(_RATE_LIMIT_SEC)
 
 
 def score_wallet(trades: list[dict]) -> dict:
@@ -176,6 +177,7 @@ def enrich_token_with_wallets(
                 "label": (
                     "Accumulator" if (row["win_rate"] or 0) >= 0.7 and (row["trade_count"] or 0) >= 5
                     else "Early Mover" if (row["win_rate"] or 0) >= 0.6 and (row["trade_count"] or 0) >= 3
+                    else "Whale" if (row["avg_return"] or 0) > 20 and (row["trade_count"] or 0) >= 2
                     else "Trader"
                 ),
             })

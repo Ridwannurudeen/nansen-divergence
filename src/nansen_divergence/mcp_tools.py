@@ -20,13 +20,11 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "get_signal_performance",
-        "description": "Get historical signal performance stats. Shows win rate, average return, and profit factor for resolved signals.",
+        "description": "Get historical signal performance stats — win rate, avg return, profit factor.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "days": {"type": "integer", "description": "Look back N days (omit for all-time)"},
-                "phase": {"type": "string", "description": "Filter by Wyckoff phase"},
-                "chain": {"type": "string", "description": "Filter by chain"},
+                "days": {"type": "integer", "description": "Look back N days (omit for all-time stats)"},
             },
         },
     },

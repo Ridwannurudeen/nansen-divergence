@@ -6,9 +6,20 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Any
 
+from nansen_divergence.mcp_tools import (
+    TOOL_DEFINITIONS,
+    handle_get_divergence_signals,
+    handle_get_signal_performance,
+)
+
 logger = logging.getLogger("nansen.mcp_router")
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
+
+_HANDLERS = {
+    "get_divergence_signals": handle_get_divergence_signals,
+    "get_signal_performance": handle_get_signal_performance,
+}
 
 
 class MCPRequest(BaseModel):
@@ -33,17 +44,6 @@ def mcp_health():
 
 @router.post("/")
 def mcp_dispatch(req: MCPRequest):
-    from nansen_divergence.mcp_tools import (
-        TOOL_DEFINITIONS,
-        handle_get_divergence_signals,
-        handle_get_signal_performance,
-    )
-
-    _HANDLERS = {
-        "get_divergence_signals": handle_get_divergence_signals,
-        "get_signal_performance": handle_get_signal_performance,
-    }
-
     if req.method == "tools/list":
         return JSONResponse(_ok(req.id, {"tools": TOOL_DEFINITIONS}))
 
