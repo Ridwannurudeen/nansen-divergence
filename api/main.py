@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Nansen Divergence API",
-    version="5.3.0",
+    version="6.0.0",
     description="Multi-chain smart money divergence scanner",
     lifespan=lifespan,
 )
@@ -77,7 +77,7 @@ def health():
     data = get_latest_scan()
     return {
         "status": "ok",
-        "version": "5.3.0",
+        "version": "6.0.0",
         "last_scan": data.get("timestamp") if data else None,
     }
 
