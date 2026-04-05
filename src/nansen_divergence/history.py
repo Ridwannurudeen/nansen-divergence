@@ -54,6 +54,50 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         CREATE INDEX IF NOT EXISTS idx_signals_chain_token_time
         ON signals (chain, token_address, scan_timestamp)
     """)
+
+    # Outcome columns — added safely so existing DBs are migrated without error.
+    _outcome_columns = [
+        ("price_at_emission", "REAL"),
+        ("price_24h", "REAL"),
+        ("price_72h", "REAL"),
+        ("price_7d", "REAL"),
+        ("return_24h", "REAL"),
+        ("return_72h", "REAL"),
+        ("return_7d", "REAL"),
+        ("outcome_correct", "INTEGER"),
+    ]
+    for col_name, col_type in _outcome_columns:
+        try:
+            conn.execute(f"ALTER TABLE signals ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            # Column already exists — safe to ignore.
+            pass
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS wallet_scores (
+            address      TEXT NOT NULL,
+            chain        TEXT NOT NULL,
+            win_rate     REAL DEFAULT 0.0,
+            avg_return   REAL DEFAULT 0.0,
+            trade_count  INTEGER DEFAULT 0,
+            last_updated TEXT,
+            score        REAL DEFAULT 0.0,
+            PRIMARY KEY (address, chain)
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS webhooks (
+            id          TEXT PRIMARY KEY,
+            url         TEXT NOT NULL,
+            secret      TEXT NOT NULL,
+            filters     TEXT DEFAULT '{}',
+            created_at  TEXT NOT NULL,
+            last_fired  TEXT,
+            fire_count  INTEGER DEFAULT 0
+        )
+    """)
+
     conn.commit()
     return conn
 
@@ -74,7 +118,7 @@ def save_scan(
 
     cursor = conn.execute(
         "INSERT INTO scans (timestamp, chains, timeframe, token_count, divergence_count) VALUES (?, ?, ?, ?, ?)",
-        (",".join(chains), now, timeframe, len(results), len(divergent)),
+        (now, ",".join(chains), timeframe, len(results), len(divergent)),
     )
     scan_id = cursor.lastrowid
 
@@ -83,8 +127,8 @@ def save_scan(
             """INSERT INTO signals
             (scan_id, scan_timestamp, chain, token_address, token_symbol, price_usd,
              price_change, market_cap, sm_net_flow, divergence_strength, phase,
-             confidence, narrative, has_sm_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             confidence, narrative, has_sm_data, price_at_emission)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 scan_id,
                 now,
@@ -100,6 +144,7 @@ def save_scan(
                 r.get("confidence", "LOW"),
                 r.get("narrative", ""),
                 1 if r.get("has_sm_data") else 0,
+                r.get("price_usd"),
             ),
         )
 
@@ -429,3 +474,81 @@ def get_signal_streaks(
             streaks[addr] = {"phase": phase, "streak": streak, "since": since}
 
     return streaks
+
+
+def get_performance_stats(
+    conn: sqlite3.Connection | None = None,
+    db_path: str | None = None,
+    days: int | None = None,
+) -> dict:
+    """Compute aggregate signal performance stats from resolved outcomes."""
+    own_conn = conn is None
+    if own_conn:
+        conn = init_db(db_path=db_path or DB_PATH)
+
+    where_clauses = ["outcome_correct IS NOT NULL"]
+    params: list = []
+    if days:
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        where_clauses.append("scan_timestamp > ?")
+        params.append(cutoff)
+
+    where = " AND ".join(where_clauses)
+    rows = conn.execute(
+        f"SELECT phase, chain, outcome_correct, return_72h FROM signals WHERE {where}",
+        params,
+    ).fetchall()
+
+    if own_conn:
+        conn.close()
+
+    if not rows:
+        return {
+            "total_signals": 0, "resolved": 0, "wins": 0, "losses": 0,
+            "win_rate": 0.0, "avg_return_on_wins": 0.0, "avg_loss_on_losses": 0.0,
+            "profit_factor": 0.0, "by_phase": {}, "by_chain": {},
+        }
+
+    wins = [r for r in rows if r["outcome_correct"] == 1]
+    losses = [r for r in rows if r["outcome_correct"] == 0]
+    win_returns = [r["return_72h"] for r in wins if r["return_72h"] is not None]
+    loss_returns = [abs(r["return_72h"]) for r in losses if r["return_72h"] is not None]
+
+    by_phase: dict[str, dict] = {}
+    for r in rows:
+        p = r["phase"]
+        if p not in by_phase:
+            by_phase[p] = {"wins": 0, "total": 0}
+        by_phase[p]["total"] += 1
+        if r["outcome_correct"] == 1:
+            by_phase[p]["wins"] += 1
+    for p, d in by_phase.items():
+        d["win_rate"] = round(d["wins"] / d["total"], 3) if d["total"] else 0.0
+
+    by_chain: dict[str, dict] = {}
+    for r in rows:
+        c = r["chain"]
+        if c not in by_chain:
+            by_chain[c] = {"wins": 0, "total": 0}
+        by_chain[c]["total"] += 1
+        if r["outcome_correct"] == 1:
+            by_chain[c]["wins"] += 1
+    for c, d in by_chain.items():
+        d["win_rate"] = round(d["wins"] / d["total"], 3) if d["total"] else 0.0
+
+    total_gain = sum(win_returns)
+    total_loss = sum(loss_returns)
+
+    return {
+        "total_signals": len(rows),
+        "resolved": len(rows),
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": round(len(wins) / len(rows), 3) if rows else 0.0,
+        "avg_return_on_wins": round(sum(win_returns) / len(win_returns), 2) if win_returns else 0.0,
+        "avg_loss_on_losses": round(sum(loss_returns) / len(loss_returns), 2) if loss_returns else 0.0,
+        "profit_factor": round(total_gain / total_loss, 2) if total_loss else 0.0,
+        "by_phase": by_phase,
+        "by_chain": by_chain,
+    }

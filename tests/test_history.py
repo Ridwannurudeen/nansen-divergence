@@ -387,3 +387,150 @@ class TestGetSignalStreaks:
         assert streaks["0xa"]["streak"] == 2
         assert streaks["0xa"]["phase"] == "ACCUMULATION"
         conn.close()
+
+
+def test_signals_table_has_outcome_columns():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        cursor = conn.execute("PRAGMA table_info(signals)")
+        cols = {row["name"] for row in cursor.fetchall()}
+        assert "price_at_emission" in cols
+        assert "price_24h" in cols
+        assert "price_72h" in cols
+        assert "price_7d" in cols
+        assert "return_24h" in cols
+        assert "return_72h" in cols
+        assert "return_7d" in cols
+        assert "outcome_correct" in cols
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_wallet_scores_table_exists():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        conn.execute("INSERT INTO wallet_scores (address, chain) VALUES ('0xabc', 'ethereum')")
+        conn.commit()
+        row = conn.execute("SELECT address FROM wallet_scores").fetchone()
+        assert row[0] == '0xabc'
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_webhooks_table_exists():
+    import tempfile, os
+    from nansen_divergence.history import init_db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        conn.execute("INSERT INTO webhooks (id, url, secret, created_at) VALUES ('1', 'http://x.com', 'secret', '2026-01-01')")
+        conn.commit()
+        row = conn.execute("SELECT url FROM webhooks").fetchone()
+        assert row[0] == 'http://x.com'
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_get_performance_stats_empty():
+    import tempfile, os
+    from nansen_divergence.history import init_db, get_performance_stats
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        stats = get_performance_stats(conn=conn)
+        assert stats["total_signals"] == 0
+        assert stats["win_rate"] == 0.0
+        assert "by_phase" in stats
+        assert "by_chain" in stats
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_get_performance_stats_with_outcomes():
+    import tempfile, os
+    from nansen_divergence.history import init_db, save_scan, get_performance_stats
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        results = [
+            {"chain": "ethereum", "token_address": "0x1", "token_symbol": "A",
+             "price_usd": 100.0, "price_change": -8.0, "market_cap": 1e6,
+             "sm_net_flow": 50000, "divergence_strength": 0.8, "phase": "ACCUMULATION",
+             "confidence": "HIGH", "narrative": "x", "has_sm_data": 1},
+            {"chain": "ethereum", "token_address": "0x2", "token_symbol": "B",
+             "price_usd": 200.0, "price_change": -5.0, "market_cap": 1e6,
+             "sm_net_flow": 30000, "divergence_strength": 0.6, "phase": "ACCUMULATION",
+             "confidence": "MEDIUM", "narrative": "y", "has_sm_data": 1},
+        ]
+        save_scan(results, ["ethereum"], "24h", conn=conn)
+        conn.execute("UPDATE signals SET return_72h=20.0, outcome_correct=1 WHERE token_symbol='A'")
+        conn.execute("UPDATE signals SET return_72h=-10.0, outcome_correct=0 WHERE token_symbol='B'")
+        conn.commit()
+        stats = get_performance_stats(conn=conn)
+        assert stats["resolved"] == 2
+        assert stats["wins"] == 1
+        assert stats["losses"] == 1
+        assert stats["win_rate"] == 0.5
+        assert stats["avg_return_on_wins"] == 20.0
+        assert "ACCUMULATION" in stats["by_phase"]
+        assert "ethereum" in stats["by_chain"]
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)
+
+
+def test_save_scan_records_price_at_emission():
+    import tempfile, os
+    from nansen_divergence.history import init_db, save_scan
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    conn = None
+    try:
+        conn = init_db(db_path=db_path)
+        results = [{
+            "chain": "ethereum",
+            "token_address": "0xabc",
+            "token_symbol": "TKN",
+            "price_usd": 42.5,
+            "price_change": -8.0,
+            "market_cap": 1000000,
+            "sm_net_flow": 50000,
+            "divergence_strength": 0.75,
+            "phase": "ACCUMULATION",
+            "confidence": "HIGH",
+            "narrative": "test",
+            "has_sm_data": 1,
+        }]
+        save_scan(results, ["ethereum"], "24h", conn=conn)
+        row = conn.execute("SELECT price_at_emission FROM signals WHERE token_symbol='TKN'").fetchone()
+        assert row is not None
+        assert row["price_at_emission"] == 42.5
+    finally:
+        if conn:
+            conn.close()
+        os.unlink(db_path)

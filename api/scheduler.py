@@ -361,6 +361,16 @@ def _run_mcp_refresh():
                     logger.warning(f"CLI enrichment failed (graceful fallback): {e}")
 
             save_cached_scan(scan_data)
+
+            # Fire webhooks for divergent signals (non-blocking)
+            try:
+                from nansen_divergence.webhook_dispatcher import dispatch_scan_signals
+                fired = dispatch_scan_signals(results)
+                if fired:
+                    logger.info(f"Webhooks fired: {fired}")
+            except Exception as e:
+                logger.warning(f"Webhook dispatch failed: {e}")
+
             _log_mcp_as_cli(scan_data)
             logger.info(
                 f"MCP refresh complete: {scan_data['summary']['total_tokens']} tokens, "
@@ -408,6 +418,12 @@ def start_scheduler():
     # Only run initial credit scan if SCAN_ON_STARTUP=1
     if SCAN_INTERVAL_MINUTES > 0 and os.getenv("SCAN_ON_STARTUP", "0") == "1":
         scheduler.add_job(_run_scan, "date", id="initial_scan")
+
+    # Outcome tracker — fills price_24h/72h/7d for resolved signals (0 credits)
+    from nansen_divergence.outcome_tracker import fill_outcomes
+    scheduler.add_job(fill_outcomes, "interval", hours=1, id="outcome_tracker")
+    scheduler.add_job(fill_outcomes, "date", id="initial_outcome_fill")
+    logger.info("Outcome tracker scheduled: hourly")
 
     scheduler.start()
     budget_msg = f", credit budget: {CREDIT_BUDGET}" if CREDIT_BUDGET > 0 else ""

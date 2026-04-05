@@ -7,22 +7,17 @@ import {
   PieChart,
   Pie,
   Cell,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
   Tooltip,
-  CartesianGrid,
 } from "recharts";
-import { OutcomesData, ScanData, SignalOutcome } from "@/lib/types";
+import { PerformanceStats, SignalLedger } from "@/lib/types";
 import { fetcher } from "@/lib/api";
 import { fmtPrice, chainLabel, cn } from "@/lib/utils";
 import { Card, CardHeader, CardValue } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { CardSkeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
+import { CardSkeleton, TableSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
 
 /* ------------------------------------------------------------------ */
-/*  Chart colors                                                      */
+/*  Chart colors                                                       */
 /* ------------------------------------------------------------------ */
 
 const PIE_COLORS = ["#4ade80", "#f43f5e"]; // wins, losses
@@ -35,7 +30,17 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Custom tooltips                                                   */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Format a date string like "2026-04-01T12:00:00Z" → "Apr 01" */
+function fmtDate(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom tooltip for donut chart                                     */
 /* ------------------------------------------------------------------ */
 
 function PieTooltip({
@@ -55,29 +60,8 @@ function PieTooltip({
   );
 }
 
-function ScatterTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: { payload: SignalOutcome }[];
-}) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="bg-surface border border-border rounded px-3 py-2 text-xs font-mono">
-      <p className="text-white font-bold">{d.token_symbol}</p>
-      <p className="text-muted">{d.chain} &middot; {d.phase}</p>
-      <p className={d.price_change_pct >= 0 ? "text-bullish" : "text-bearish"}>
-        {d.price_change_pct >= 0 ? "+" : ""}
-        {d.price_change_pct.toFixed(1)}% &middot; {d.days_ago}d ago
-      </p>
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/*  Center label for pie donut                                        */
+/*  Center label for pie donut                                         */
 /* ------------------------------------------------------------------ */
 
 function PieCenterLabel({ winRate }: { winRate: number }) {
@@ -90,63 +74,57 @@ function PieCenterLabel({ winRate }: { winRate: number }) {
       className="fill-white font-mono font-bold"
       style={{ fontSize: 22 }}
     >
-      {winRate.toFixed(0)}%
+      {(winRate * 100).toFixed(0)}%
     </text>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Page                                                              */
+/*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function PerformancePage() {
   const {
-    data: outcomes,
-    error: outcomesError,
-    isLoading: outcomesLoading,
-  } = useSWR<OutcomesData>("/api/history/outcomes?days=30", fetcher, {
+    data: perfData,
+    error: perfError,
+    isLoading: perfLoading,
+  } = useSWR<PerformanceStats>("/api/v1/performance", fetcher, {
     refreshInterval: 60000,
   });
 
   const {
-    data: scan,
-    error: scanError,
-    isLoading: scanLoading,
-  } = useSWR<ScanData>("/api/scan/latest", fetcher, {
+    data: ledgerData,
+    error: ledgerError,
+    isLoading: ledgerLoading,
+  } = useSWR<SignalLedger>("/api/v1/signals?resolved_only=true&limit=100", fetcher, {
     refreshInterval: 60000,
   });
 
-  const isLoading = outcomesLoading || scanLoading;
-  const error = outcomesError || scanError;
-
-  /* Derive stats — prefer outcomes endpoint, fall back to scan backtest */
-  const stats = outcomes?.stats ?? scan?.backtest ?? null;
-  const outcomeList = useMemo(() => outcomes?.outcomes ?? [], [outcomes]);
+  const isLoading = perfLoading || ledgerLoading;
+  const error = perfError ?? ledgerError;
 
   /* Pie data */
   const pieData = useMemo(() => {
-    if (!stats) return [];
+    if (!perfData) return [];
+    const wins = Math.round((perfData.resolved_signals ?? 0) * (perfData.win_rate ?? 0));
+    const losses = (perfData.resolved_signals ?? 0) - wins;
     return [
-      { name: "Wins", value: stats.wins },
-      { name: "Losses", value: stats.losses },
+      { name: "Wins", value: wins },
+      { name: "Losses", value: losses },
     ];
-  }, [stats]);
+  }, [perfData]);
 
-  /* Scatter data grouped by phase for coloring */
-  const scatterByPhase = useMemo(() => {
-    const groups: Record<string, SignalOutcome[]> = {};
-    for (const o of outcomeList) {
-      const phase = o.phase || "UNKNOWN";
-      if (!groups[phase]) groups[phase] = [];
-      groups[phase].push(o);
-    }
-    return groups;
-  }, [outcomeList]);
 
-  /* Sorted outcomes for table */
-  const sortedOutcomes = useMemo(() => {
-    return [...outcomeList].sort((a, b) => a.days_ago - b.days_ago);
-  }, [outcomeList]);
+  /* Phase breakdown rows sorted by signal count descending */
+  const phaseRows = useMemo(() => {
+    if (!perfData?.by_phase) return [];
+    return Object.entries(perfData.by_phase).sort(
+      ([, a], [, b]) => b.signal_count - a.signal_count,
+    );
+  }, [perfData]);
+
+  /* Signal ledger rows */
+  const signals = ledgerData?.signals ?? [];
 
   /* ---- Loading state ---- */
   if (isLoading) {
@@ -184,7 +162,7 @@ export default function PerformancePage() {
   }
 
   /* ---- Empty state ---- */
-  if (!stats || stats.total_signals === 0) {
+  if (!perfData || perfData.total_signals === 0) {
     return (
       <main className="max-w-7xl mx-auto px-4 py-4">
         <h1 className="text-2xl font-mono font-bold text-white mb-6">
@@ -204,6 +182,10 @@ export default function PerformancePage() {
     );
   }
 
+  const winRatePct = (perfData.win_rate * 100).toFixed(1);
+  const avgReturn = perfData.avg_return_on_wins;
+  const profitFactor = perfData.profit_factor;
+
   /* ---- Main render ---- */
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
@@ -211,43 +193,39 @@ export default function PerformancePage() {
         SIGNAL PERFORMANCE
       </h1>
 
-      {scan?.demo && (
-        <div className="bg-accent/10 border border-accent/30 text-accent font-mono text-xs px-3 py-1.5 rounded mb-4 text-center">
-          DEMO DATA — backtest stats are seeded. Live results appear after 2+ scan cycles.
-        </div>
-      )}
-
       {/* ---- Stats row ---- */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-6">
         <Card glow="green">
           <CardHeader>Win Rate</CardHeader>
           <CardValue className="text-bullish glow-green">
-            {stats.win_rate.toFixed(1)}%
+            {winRatePct}%
           </CardValue>
         </Card>
 
         <Card>
           <CardHeader>Total Signals</CardHeader>
-          <CardValue className="text-accent">{stats.total_signals}</CardValue>
+          <CardValue className="text-accent">{perfData.total_signals}</CardValue>
         </Card>
 
         <Card>
-          <CardHeader>Avg Return</CardHeader>
-          <CardValue
-            className={stats.avg_return >= 0 ? "text-bullish" : "text-bearish"}
-          >
-            {stats.avg_return >= 0 ? "+" : ""}{stats.avg_return.toFixed(1)}%
+          <CardHeader>Avg Return (wins)</CardHeader>
+          <CardValue className={avgReturn != null && avgReturn >= 0 ? "text-bullish" : "text-bearish"}>
+            {avgReturn != null
+              ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(1)}%`
+              : "—"}
           </CardValue>
         </Card>
 
         <Card>
-          <CardHeader>Best Return</CardHeader>
-          <CardValue className="text-bullish">+{stats.best_return.toFixed(1)}%</CardValue>
+          <CardHeader>Profit Factor</CardHeader>
+          <CardValue className={profitFactor != null && profitFactor >= 1 ? "text-bullish" : "text-muted"}>
+            {profitFactor != null ? profitFactor.toFixed(2) : "—"}
+          </CardValue>
         </Card>
 
         <Card>
-          <CardHeader>Worst Return</CardHeader>
-          <CardValue className="text-bearish">{stats.worst_return.toFixed(1)}%</CardValue>
+          <CardHeader>Pending</CardHeader>
+          <CardValue className="text-muted">{perfData.pending_signals}</CardValue>
         </Card>
       </div>
 
@@ -275,180 +253,204 @@ export default function PerformancePage() {
                 ))}
               </Pie>
               <Tooltip content={<PieTooltip />} />
-              <PieCenterLabel winRate={stats.win_rate} />
+              <PieCenterLabel winRate={perfData.win_rate} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex justify-center gap-6 text-xs font-mono mt-2">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-bullish inline-block" />
-              Wins ({stats.wins})
+              Wins ({pieData[0]?.value ?? 0})
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-bearish inline-block" />
-              Losses ({stats.losses})
+              Losses ({pieData[1]?.value ?? 0})
             </span>
           </div>
         </Card>
 
-        {/* Scatter timeline */}
+        {/* Phase breakdown table */}
         <Card>
           <h2 className="text-xs font-mono text-muted uppercase tracking-wider mb-3">
-            SIGNAL TIMELINE (30D)
+            PERFORMANCE BY PHASE
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-              <XAxis
-                dataKey="days_ago"
-                name="Days Ago"
-                type="number"
-                reversed
-                tick={{ fill: "#737373", fontSize: 11, fontFamily: "monospace" }}
-                axisLine={false}
-                tickLine={false}
-                label={{
-                  value: "Days Ago",
-                  position: "insideBottom",
-                  offset: -2,
-                  fill: "#737373",
-                  fontSize: 10,
-                  fontFamily: "monospace",
-                }}
-              />
-              <YAxis
-                dataKey="price_change_pct"
-                name="Return"
-                type="number"
-                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                tick={{ fill: "#737373", fontSize: 11, fontFamily: "monospace" }}
-                axisLine={false}
-                tickLine={false}
-                width={50}
-              />
-              <Tooltip content={<ScatterTooltip />} />
-              {Object.entries(scatterByPhase).map(([phase, data]) => (
-                <Scatter
-                  key={phase}
-                  name={phase}
-                  data={data}
-                  fill={PHASE_COLORS[phase] || "#737373"}
-                  fillOpacity={0.8}
-                />
-              ))}
-            </ScatterChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center gap-4 text-xs font-mono mt-2 flex-wrap">
-            {Object.entries(PHASE_COLORS).map(([phase, color]) => (
-              <span key={phase} className="flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-full inline-block"
-                  style={{ backgroundColor: color }}
-                />
-                {phase}
-              </span>
-            ))}
-          </div>
+          {phaseRows.length === 0 ? (
+            <div className="flex items-center justify-center h-48 text-muted font-mono text-sm">
+              No phase data yet
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm font-mono">
+                <thead>
+                  <tr className="text-muted text-xs border-b border-border">
+                    <th className="text-left py-2 px-3">Phase</th>
+                    <th className="text-right py-2 px-3">Signals</th>
+                    <th className="text-right py-2 px-3">Win Rate</th>
+                    <th className="text-right py-2 px-3">Avg Return</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {phaseRows.map(([phase, row]) => {
+                    const phaseColor = PHASE_COLORS[phase] ?? "#737373";
+                    const wr = (row.win_rate * 100).toFixed(0);
+                    const ar = row.avg_return;
+                    return (
+                      <tr key={phase} className="border-b border-border/50 hover:bg-surface-hover transition-colors">
+                        <td className="py-2.5 px-3">
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                              style={{ backgroundColor: phaseColor }}
+                            />
+                            <Badge variant="phase" value={phase}>{phase}</Badge>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-white">{row.signal_count}</td>
+                        <td className={cn(
+                          "py-2.5 px-3 text-right font-bold",
+                          row.win_rate >= 0.5 ? "text-bullish" : "text-bearish",
+                        )}>
+                          {wr}%
+                        </td>
+                        <td className={cn(
+                          "py-2.5 px-3 text-right",
+                          ar == null ? "text-muted" : ar >= 0 ? "text-bullish" : "text-bearish",
+                        )}>
+                          {ar != null ? `${ar >= 0 ? "+" : ""}${ar.toFixed(1)}%` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
 
-      {/* ---- Outcomes ---- */}
+      {/* ---- Signal ledger ---- */}
       <Card>
         <h2 className="text-xs font-mono text-muted uppercase tracking-wider mb-3">
-          SIGNAL OUTCOMES ({sortedOutcomes.length})
+          SIGNAL LEDGER ({signals.length})
         </h2>
 
-        {/* Mobile: card layout */}
-        <div className="md:hidden space-y-2">
-          {sortedOutcomes.map((o, i) => {
-            const positive = o.price_change_pct >= 0;
-            return (
-              <div
-                key={`${o.chain}-${o.token_symbol}-${i}`}
-                className={cn(
-                  "bg-bg/50 border border-border/50 rounded-lg p-3 border-l-4",
-                  positive ? "border-l-bullish" : "border-l-bearish",
-                )}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-bold font-mono">{o.token_symbol}</span>
-                    <span className="text-muted text-xs font-mono">{chainLabel(o.chain)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="phase" value={o.phase}>{o.phase}</Badge>
-                    <Badge variant="confidence" value={o.confidence}>{o.confidence}</Badge>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                  <div>
-                    <div className="text-muted">Signal</div>
-                    <div className="text-white">{fmtPrice(o.signal_price)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted">Current</div>
-                    <div className="text-white">{fmtPrice(o.current_price)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted">Return</div>
-                    <div className={cn("font-bold", positive ? "text-bullish" : "text-bearish")}>
-                      {positive ? "+" : ""}{o.price_change_pct.toFixed(1)}%
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Desktop: table layout */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm font-mono">
-            <thead>
-              <tr className="text-muted text-xs border-b border-border">
-                <th className="text-left py-2 px-3">Symbol</th>
-                <th className="text-left py-2 px-3">Chain</th>
-                <th className="text-left py-2 px-3">Phase</th>
-                <th className="text-center py-2 px-3">Confidence</th>
-                <th className="text-right py-2 px-3">Signal Price</th>
-                <th className="text-right py-2 px-3">Current Price</th>
-                <th className="text-right py-2 px-3">Return %</th>
-                <th className="text-right py-2 px-3">Days Ago</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedOutcomes.map((o, i) => {
-                const positive = o.price_change_pct >= 0;
-
+        {signals.length === 0 ? (
+          <div className="text-center py-12 text-muted font-mono text-sm">
+            No resolved signals yet. Check back after the next scan cycle.
+          </div>
+        ) : (
+          <>
+            {/* Mobile: card layout */}
+            <div className="md:hidden space-y-2">
+              {signals.map((s) => {
+                const r72 = s.return_72h;
+                const positive = r72 != null && r72 >= 0;
+                const outcome = s.outcome_correct;
                 return (
-                  <tr
-                    key={`${o.chain}-${o.token_symbol}-${i}`}
+                  <div
+                    key={s.id}
                     className={cn(
-                      "border-b border-border/50 hover:bg-surface-hover transition-colors",
-                      positive
-                        ? "border-l-2 border-l-bullish"
-                        : "border-l-2 border-l-bearish",
+                      "bg-bg/50 border border-border/50 rounded-lg p-3 border-l-4",
+                      outcome === 1
+                        ? "border-l-bullish"
+                        : outcome === 0
+                        ? "border-l-bearish"
+                        : "border-l-border",
                     )}
                   >
-                    <td className="py-2.5 px-3 text-white font-bold">{o.token_symbol}</td>
-                    <td className="py-2.5 px-3 text-muted">{chainLabel(o.chain)}</td>
-                    <td className="py-2.5 px-3">
-                      <Badge variant="phase" value={o.phase}>{o.phase}</Badge>
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <Badge variant="confidence" value={o.confidence}>{o.confidence}</Badge>
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-muted">{fmtPrice(o.signal_price)}</td>
-                    <td className="py-2.5 px-3 text-right text-white">{fmtPrice(o.current_price)}</td>
-                    <td className={cn("py-2.5 px-3 text-right font-bold", positive ? "text-bullish" : "text-bearish")}>
-                      {positive ? "+" : ""}{o.price_change_pct.toFixed(1)}%
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-muted">{o.days_ago}</td>
-                  </tr>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold font-mono">{s.token_symbol}</span>
+                        <span className="text-muted text-xs font-mono">{chainLabel(s.chain)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="phase" value={s.phase}>{s.phase}</Badge>
+                        <span className="text-xs font-mono text-muted">{fmtDate(s.created_at)}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                      <div>
+                        <div className="text-muted">Entry</div>
+                        <div className="text-white">
+                          {s.price_at_emission != null ? fmtPrice(s.price_at_emission) : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted">72h Return</div>
+                        <div className={cn("font-bold", r72 == null ? "text-muted" : positive ? "text-bullish" : "text-bearish")}>
+                          {r72 != null ? `${positive ? "+" : ""}${r72.toFixed(1)}%` : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted">Outcome</div>
+                        <div className={cn(
+                          "font-bold text-base",
+                          outcome === 1 ? "text-bullish" : outcome === 0 ? "text-bearish" : "text-muted",
+                        )}>
+                          {outcome === 1 ? "✓" : outcome === 0 ? "✗" : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            {/* Desktop: table layout */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm font-mono">
+                <thead>
+                  <tr className="text-muted text-xs border-b border-border">
+                    <th className="text-left py-2 px-3">Date</th>
+                    <th className="text-left py-2 px-3">Token</th>
+                    <th className="text-left py-2 px-3">Chain</th>
+                    <th className="text-left py-2 px-3">Phase</th>
+                    <th className="text-right py-2 px-3">Strength</th>
+                    <th className="text-right py-2 px-3">Entry Price</th>
+                    <th className="text-right py-2 px-3">72h Return</th>
+                    <th className="text-center py-2 px-3">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {signals.map((s) => {
+                    const r72 = s.return_72h;
+                    const positive = r72 != null && r72 >= 0;
+                    const outcome = s.outcome_correct;
+
+                    return (
+                      <tr
+                        key={s.id}
+                        className="border-b border-border/50 hover:bg-surface-hover transition-colors"
+                      >
+                        <td className="py-2.5 px-3 text-muted">{fmtDate(s.created_at)}</td>
+                        <td className="py-2.5 px-3 text-white font-bold">{s.token_symbol}</td>
+                        <td className="py-2.5 px-3 text-muted">{chainLabel(s.chain)}</td>
+                        <td className="py-2.5 px-3">
+                          <Badge variant="phase" value={s.phase}>{s.phase}</Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-white">{s.divergence_strength}</td>
+                        <td className="py-2.5 px-3 text-right text-muted">
+                          {s.price_at_emission != null ? fmtPrice(s.price_at_emission) : "—"}
+                        </td>
+                        <td className={cn(
+                          "py-2.5 px-3 text-right font-bold",
+                          r72 == null ? "text-muted" : positive ? "text-bullish" : "text-bearish",
+                        )}>
+                          {r72 != null ? `${positive ? "+" : ""}${r72.toFixed(1)}%` : "—"}
+                        </td>
+                        <td className={cn(
+                          "py-2.5 px-3 text-center font-bold text-base",
+                          outcome === 1 ? "text-bullish" : outcome === 0 ? "text-bearish" : "text-muted",
+                        )}>
+                          {outcome === 1 ? "✓" : outcome === 0 ? "✗" : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </Card>
     </main>
   );
