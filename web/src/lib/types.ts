@@ -122,3 +122,39 @@ export interface OutcomesData {
   outcomes: SignalOutcome[];
   stats: BacktestStats;
 }
+
+export interface PerformanceStats {
+  win_rate: number;
+  total_signals: number;
+  resolved_signals: number;
+  pending_signals: number;
+  avg_return_on_wins: number | null;
+  avg_loss_on_losses: number | null;
+  profit_factor: number | null;
+  by_phase: Record<string, { win_rate: number; signal_count: number; avg_return: number | null }>;
+  by_chain: Record<string, { win_rate: number; signal_count: number; avg_return: number | null }>;
+}
+
+export interface SignalRecord {
+  id: string;
+  token_symbol: string;
+  token_address: string;
+  chain: string;
+  phase: string;
+  divergence_strength: number;
+  confidence: string;
+  created_at: string;
+  price_at_emission: number | null;
+  price_24h: number | null;
+  price_72h: number | null;
+  price_7d: number | null;
+  return_24h: number | null;
+  return_72h: number | null;
+  return_7d: number | null;
+  outcome_correct: number | null;
+}
+
+export interface SignalLedger {
+  signals: SignalRecord[];
+  total: number;
+}
