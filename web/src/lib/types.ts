@@ -151,7 +151,7 @@ export interface SignalRecord {
   return_24h: number | null;
   return_72h: number | null;
   return_7d: number | null;
-  outcome_correct: number | null;
+  outcome_correct: 1 | 0 | null;
 }
 
 export interface SignalLedger {

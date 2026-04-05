@@ -114,8 +114,6 @@ export default function PerformancePage() {
     ];
   }, [perfData]);
 
-  const wins = Math.round((perfData?.resolved_signals ?? 0) * (perfData?.win_rate ?? 0));
-  const losses = (perfData?.resolved_signals ?? 0) - wins;
 
   /* Phase breakdown rows sorted by signal count descending */
   const phaseRows = useMemo(() => {
@@ -261,11 +259,11 @@ export default function PerformancePage() {
           <div className="flex justify-center gap-6 text-xs font-mono mt-2">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-bullish inline-block" />
-              Wins ({wins})
+              Wins ({pieData[0]?.value ?? 0})
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-bearish inline-block" />
-              Losses ({losses})
+              Losses ({pieData[1]?.value ?? 0})
             </span>
           </div>
         </Card>
